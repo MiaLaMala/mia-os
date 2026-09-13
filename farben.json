@@ -1,0 +1,76 @@
+{
+  "_": [
+    "Die Farben von Mia OS. EINZIGE QUELLE.",
+    "",
+    "Aus dieser Datei erzeugt scripts/farben_bauen.py:",
+    "  frontend/src/farben.css          CSS-Variablen fuers Web",
+    "  apple/MiaOS/Bausteine/Farben.swift   Konstanten fuer Mac, iPhone, Uhr",
+    "  jana-desktop: display/src/farben.h   RGB565-Konstanten fuers Display",
+    "",
+    "NICHTS davon von Hand aendern. Die erzeugten Dateien tragen einen Hinweis",
+    "und werden bei jedem Lauf ueberschrieben. Grund: bis zum 13.09.2026 stand",
+    "die Palette an drei Stellen einzeln, und sie war an drei Stellen anders.",
+    "DESIGN.md sagte Blau, das Display sagte Rot, das App-Symbol ein drittes Rot.",
+    "",
+    "Die Werte stammen aus OKLCH (Farbton 20, ein warmes Rot). Dort laesst sich",
+    "Helligkeit aendern, ohne dass die Farbe kippt: in HSL wird ein aufgehelltes",
+    "Rot rosa, in OKLCH bleibt es Rot. Die Hex-Werte sind daraus gerechnet, die",
+    "OKLCH-Angabe steht bei jeder Farbe, damit man Abstufungen nachziehen kann.",
+    "",
+    "Alle Kontraste sind gerechnet und stehen unten in 'pflichtkontraste'.",
+    "scripts/farben_bauen.py rechnet sie bei jedem Lauf neu und bricht ab,",
+    "wenn eine unter ihren Wert faellt."
+  ],
+
+  "farbton": 20,
+
+  "dunkel": {
+    "_": "Standard auf Display und Uhr, folgt sonst dem System.",
+    "grund":        { "hex": "#100b0a", "oklch": [0.155, 0.010, 20], "rolle": "Hintergrund des Fensters" },
+    "flaeche":      { "hex": "#1c1414", "oklch": [0.200, 0.013, 20], "rolle": "Karten, Seitenleiste, Balken" },
+    "erhoben":      { "hex": "#281d1d", "oklch": [0.245, 0.016, 20], "rolle": "Bloecke auf einer Flaeche" },
+    "linie":        { "hex": "#3d2f2f", "oklch": [0.320, 0.020, 20], "rolle": "Trenner, Raender" },
+    "text":         { "hex": "#f6f0f0", "oklch": [0.960, 0.006, 20], "rolle": "Lesetext, Titel" },
+    "gedaempft":    { "hex": "#a29594", "oklch": [0.680, 0.016, 20], "rolle": "Nebensaechliches, Beschriftungen" },
+    "akzent":       { "hex": "#f33e52", "oklch": [0.640, 0.215, 20], "rolle": "was JETZT dran ist" },
+    "akzent_matt":  { "hex": "#72101f", "oklch": [0.360, 0.130, 20], "rolle": "Kante am hervorgehobenen Block" },
+    "akzent_hauch": { "hex": "#371113", "oklch": [0.240, 0.060, 20], "rolle": "Flaeche hinter dem Hervorgehobenen" },
+    "gut":          { "hex": "#3ad26a", "oklch": [0.760, 0.180, 150], "rolle": "erledigt, laeuft" },
+    "achtung":      { "hex": "#ff9f0a", "oklch": [0.790, 0.170, 70], "rolle": "faellig, bald" },
+    "fehler":       { "hex": "#ff7043", "oklch": [0.720, 0.180, 40], "rolle": "kaputt" }
+  },
+
+  "hell": {
+    "_": "Nicht die dunkle Palette umgedreht, sondern eigens gesetzt.",
+    "grund":        { "hex": "#fdf9f9", "oklch": [0.985, 0.004, 20], "rolle": "Hintergrund des Fensters" },
+    "flaeche":      { "hex": "#ffffff", "oklch": [1.000, 0.000, 20], "rolle": "Karten" },
+    "erhoben":      { "hex": "#f7f0ef", "oklch": [0.960, 0.008, 20], "rolle": "Seitenleiste, Balken" },
+    "linie":        { "hex": "#e6dbdb", "oklch": [0.900, 0.012, 20], "rolle": "Trenner, Raender" },
+    "text":         { "hex": "#1b1414", "oklch": [0.200, 0.012, 20], "rolle": "Lesetext, Titel" },
+    "gedaempft":    { "hex": "#695959", "oklch": [0.480, 0.020, 20], "rolle": "Nebensaechliches" },
+    "akzent":       { "hex": "#c70030", "oklch": [0.520, 0.215, 20], "rolle": "was JETZT dran ist" },
+    "akzent_matt":  { "hex": "#ffc6c4", "oklch": [0.880, 0.070, 20], "rolle": "Kante am hervorgehobenen Block" },
+    "akzent_hauch": { "hex": "#ffeae9", "oklch": [0.960, 0.030, 20], "rolle": "Flaeche hinter dem Hervorgehobenen" },
+    "gut":          { "hex": "#1a8a42", "oklch": [0.560, 0.150, 150], "rolle": "erledigt, laeuft" },
+    "achtung":      { "hex": "#a86400", "oklch": [0.580, 0.130, 70], "rolle": "faellig, bald" },
+    "fehler":       { "hex": "#c4441f", "oklch": [0.530, 0.170, 40], "rolle": "kaputt" }
+  },
+
+  "pflichtkontraste": [
+    { "_": "WCAG AA. Lesetext 4.5, Grosstext und Bedienelemente 3.0." },
+    { "thema": "dunkel", "vorne": "text",      "hinten": "grund",   "min": 4.5 },
+    { "thema": "dunkel", "vorne": "gedaempft", "hinten": "grund",   "min": 4.5 },
+    { "thema": "dunkel", "vorne": "gedaempft", "hinten": "flaeche", "min": 4.5 },
+    { "thema": "dunkel", "vorne": "akzent",    "hinten": "grund",   "min": 3.0 },
+    { "thema": "dunkel", "vorne": "akzent",    "hinten": "flaeche", "min": 3.0 },
+    { "thema": "dunkel", "vorne": "akzent",    "hinten": "akzent_hauch", "min": 3.0 },
+    { "thema": "dunkel", "vorne": "achtung",   "hinten": "grund",   "min": 3.0 },
+    { "thema": "dunkel", "vorne": "fehler",    "hinten": "grund",   "min": 3.0 },
+    { "thema": "hell",   "vorne": "text",      "hinten": "grund",   "min": 4.5 },
+    { "thema": "hell",   "vorne": "gedaempft", "hinten": "grund",   "min": 4.5 },
+    { "thema": "hell",   "vorne": "akzent",    "hinten": "grund",   "min": 3.0 },
+    { "thema": "hell",   "vorne": "akzent",    "hinten": "akzent_hauch", "min": 3.0 },
+    { "thema": "hell",   "vorne": "achtung",   "hinten": "grund",   "min": 3.0 },
+    { "thema": "hell",   "vorne": "fehler",    "hinten": "grund",   "min": 3.0 }
+  ]
+}

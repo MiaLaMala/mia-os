@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.name }} · {{ owner }}{% endblock %}
+
+{% block style %}
+    .kopf {
+      display: flex; align-items: center; gap: .75rem;
+      height: 3.25rem; padding: 0 .75rem 0 .5rem;
+      border-bottom: 1px solid var(--linie); background: var(--flaeche);
+    }
+    .zurueck {
+      display: inline-flex; align-items: center; gap: .25rem;
+      height: 2.25rem; padding: 0 .75rem 0 .5rem; border-radius: 999px;
+      color: var(--akzent); font-size: .875rem; font-weight: 500;
+      transition: background .15s;
+    }
+    .zurueck:hover { background: var(--erhoben); }
+    .titel { min-width: 0; flex: 1; }
+    .titel h1 {
+      margin: 0; font-size: .9375rem; font-weight: 600; letter-spacing: -.01em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .titel p {
+      margin: .0625rem 0 0; font-size: .75rem; color: var(--gedaempft);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tag {
+      display: inline-block; padding: .0625rem .4rem; border-radius: 999px;
+      background: var(--erhoben); font-size: .6875rem; font-weight: 500;
+    }
+    .extern {
+      display: grid; place-items: center; width: 2.25rem; height: 2.25rem;
+      border-radius: 999px; color: var(--gedaempft); transition: background .15s, color .15s;
+    }
+    .extern:hover { background: var(--erhoben); color: var(--text); }
+    .rahmen { position: relative; height: calc(100dvh - 3.25rem); }
+    .rahmen > div, .rahmen iframe { width: 100%; height: 100%; border: 0; }
+    .laedt {
+      position: absolute; inset: 0; display: grid; place-items: center;
+      color: var(--gedaempft); font-size: .875rem; pointer-events: none;
+    }
+    .laedt a { color: var(--akzent); pointer-events: auto; }
+{% endblock %}
+
+{% block content %}
+<header class="kopf">
+  <a class="zurueck" href="{{ zurueck_url }}">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 7.5 9.5 12 14 16.5"/></svg>
+    Dokumente
+  </a>
+  <div class="titel">
+    <h1>{{ doc.name }}</h1>
+    <p>{{ doc.folder }}{% if not schreibbar %} · <span class="tag">nur lesen</span>{% endif %}</p>
+  </div>
+  {% if doc.ordner_link %}
+  <a class="extern" href="{{ doc.ordner_link }}" target="_blank" rel="noopener noreferrer" title="Ordner in Nextcloud öffnen" aria-label="Ordner in Nextcloud öffnen">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.75 4.25h6v6"/><path d="M19.75 4.25 11 13"/><path d="M18 14v5.25a1.5 1.5 0 0 1-1.5 1.5h-11a1.5 1.5 0 0 1-1.5-1.5v-11a1.5 1.5 0 0 1 1.5-1.5H10"/></svg>
+  </a>
+  {% endif %}
+</header>
+
+<div class="rahmen">
+  <div id="editor-flaeche"></div>
+  <p class="laedt">Editor wird geladen …</p>
+</div>
+
+<noscript><p class="laedt">Für den Editor wird JavaScript gebraucht.</p></noscript>
+
+<script src="{{ api_url }}"></script>
+<script>
+  (function () {
+    var rahmen = document.querySelector(".rahmen");
+    var hinweis = rahmen.querySelector(".laedt");
+
+    if (typeof DocsAPI === "undefined") {
+      hinweis.innerHTML = 'Der Dokumentenserver antwortet nicht. <a href="{{ zurueck_url }}">Zurück zu den Dokumenten</a>';
+      return;
+    }
+
+    var konfig = {{ konfig_json | safe }};
+    konfig.events = {
+      onAppReady: function () { if (hinweis) hinweis.remove(); },
+      onError: function (e) {
+        console.error("OnlyOffice:", e);
+        if (hinweis) hinweis.textContent = "Das Dokument konnte nicht geladen werden.";
+      },
+      onDocumentStateChange: function (e) {
+        document.title = (e.data ? "• " : "") + {{ doc.name | tojson }} + " · {{ owner }}";
+      }
+    };
+    // DocEditor ersetzt das Ziel-Element. Der Rahmen gibt die Groesse vor.
+    new DocsAPI.DocEditor("editor-flaeche", konfig);
+  })();
+</script>
+{% endblock %}

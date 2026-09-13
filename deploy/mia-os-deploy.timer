@@ -1,0 +1,11 @@
+[Unit]
+Description=Prueft alle 10 Minuten auf neue Commits
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target

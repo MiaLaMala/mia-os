@@ -1,0 +1,80 @@
+[project]
+name = "mia-os"
+# MAJOR.MINOR von Hand, der dritte Teil zaehlt sich selbst (Anzahl Commits).
+# Die CI setzt daraus bei jedem gruenen Lauf auf main ein Tag und ein Release.
+#
+# Wann welcher Teil steigt:
+#
+#   MINOR (0.2 -> 0.3)  Ein neuer Bereich kommt dazu. Nicht eine Funktion
+#                       mehr, sondern etwas, das vorher gar nicht ging:
+#                       Berichtsheft, Dokumentenscanner, Gesundheit.
+#
+#   MAJOR (0.x -> 1.0)  Mia benutzt Mia OS taeglich statt der alten Wege.
+#                       Das ist keine technische Marke, sondern ihre Antwort
+#                       auf "benutze ich das eigentlich". Sie entscheidet das,
+#                       nicht ich.
+#
+#   MAJOR (1.0 -> 2.0)  Etwas Grundsaetzliches aendert sich: ein Umzug in die
+#                       Cloud, oder Seiten und Eintraege funktionieren anders
+#                       als bisher. Das entscheidet die Sache selbst.
+version = "0.3.0"
+description = "Persoenliche Zentrale: Kennzahlen aus allen Lebensbereichen, modular erweiterbar."
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.28",
+    "jinja2>=3.1",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "caldav>=1.4",
+    # Fuer die Einstellungsseite: ohne das wirft FastAPI beim Absenden des
+    # Formulars einen Fehler statt zu speichern.
+    "python-multipart>=0.0.20",
+    # Scanner: aus einem Handyfoto einen Scan machen (entzerren, aufhellen).
+    # Die headless-Fassung, weil im Container keine Bildschirmausgabe
+    # existiert: das normale opencv-python zieht GTK und X11 mit rein.
+    "opencv-python-headless>=4.10",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "types-requests",
+]
+
+[project.scripts]
+mia-os = "src.main:run"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_return_any = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q --cov=src --cov-report=term-missing --cov-fail-under=70"

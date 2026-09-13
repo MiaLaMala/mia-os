@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Sandbox an. Die App braucht nur zwei Dinge: raus ins Netz und einen
+         eigenen Schluesselbund-Eintrag. Kein Dateizugriff, keine Kamera,
+         kein Mikrofon: was nicht angefordert ist, kann auch nicht
+         missbraucht werden. -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+</dict>
+</plist>

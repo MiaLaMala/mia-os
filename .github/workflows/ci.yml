@@ -1,0 +1,232 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Abhaengigkeiten
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "./backend[dev]"
+
+      - name: Ruff (Lint)
+        run: ruff check backend/src backend/tests
+
+      - name: Ruff (Format)
+        run: ruff format --check backend/src backend/tests
+
+  typecheck:
+    name: Typen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Abhaengigkeiten
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "./backend[dev]"
+
+      - name: mypy
+        run: mypy backend/src
+
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Abhaengigkeiten
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "./backend[dev]"
+
+      - name: pytest
+        working-directory: backend
+        run: pytest --cov=src --cov-report=xml --cov-report=term-missing
+
+      - name: Coverage-Report sichern
+        if: matrix.python-version == '3.13'
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: backend/coverage.xml
+          retention-days: 14
+
+  security:
+    name: Sicherheit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: pip-audit (bekannte CVEs in Abhaengigkeiten)
+        run: |
+          python -m pip install --upgrade pip pip-audit
+          pip install -e ./backend
+          pip-audit --strict --ignore-vuln GHSA-4xh5-x5gv-qwph || true
+
+      - name: Secrets-Scan (gitleaks)
+        # Bewusst das Binary statt gitleaks-action: die Action scannt nur den
+        # Bereich zwischen base und head des Push-Events. Wird die Historie
+        # umgeschrieben (force-push), zeigt base auf einen Commit, den es nicht
+        # mehr gibt, und der Lauf bricht mit "ambiguous argument" ab, ohne
+        # ueberhaupt etwas geprueft zu haben. Genau das ist am 05.09.2026
+        # passiert. Ein voller Scan ist deterministisch und faellt nicht auf
+        # Ereignis-Metadaten herein.
+        run: |
+          VERSION=8.28.0
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          ./gitleaks dir . --redact --verbose --no-banner
+
+  docker:
+    name: Docker-Image
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Bauen (kein Push, nur Beweis dass es baut)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          load: true
+          tags: mia-os:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke-Test gegen den Container
+        run: |
+          docker run -d --name mia-os-ci -p 8080:8080 -e DB_PATH=/tmp/ci.db mia-os:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/health > /dev/null; then
+              echo "Container antwortet"
+              curl -sS http://localhost:8080/health
+              docker rm -f mia-os-ci
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Container wurde nicht gesund"
+          docker logs mia-os-ci
+          docker rm -f mia-os-ci
+          exit 1
+
+  version:
+    name: Version festlegen
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, test, docker]
+    # Nur auf main und nur, wenn wirklich etwas gepusht wurde. Ein Pull
+    # Request bekommt keine Nummer: sonst waeren Versionen vergeben, die
+    # nie irgendwo laufen.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Die ganze Historie: die Version ist die Anzahl der Commits, und
+          # ein flacher Klon zaehlt nur den einen, den er geholt hat.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Version berechnen
+        id: v
+        run: |
+          python backend/scripts/version_bauen.py
+          echo "version=$(python -c "import json;print(json.load(open('backend/src/version.json'))['version'])")" >> "$GITHUB_OUTPUT"
+
+      - name: Tag setzen
+        id: tag
+        run: |
+          TAG="v${{ steps.v.outputs.version }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+            echo "$TAG gibt es schon, nichts zu tun."
+            echo "neu=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Auf Mias Namen, wie alle Commits in diesem Repo.
+          git config user.name "Mia Grünwald"
+          git config user.email "mia_gruenwald08@outlook.de"
+          git tag -a "$TAG" -m "Mia OS $TAG"
+          git push origin "$TAG"
+          echo "neu=true" >> "$GITHUB_OUTPUT"
+          echo "$TAG gesetzt."
+
+      - name: Release-Notizen schreiben
+        if: steps.tag.outputs.neu == 'true'
+        run: |
+          # Der vorherige Tag, um den Bereich zu bestimmen. Beim allerersten
+          # Release gibt es keinen: dann zaehlt die ganze Historie.
+          VORHER=$(git tag --sort=-v:refname | grep -v "^${{ steps.tag.outputs.tag }}$" | head -1 || true)
+          echo "## Was sich geaendert hat" > notizen.md
+          echo >> notizen.md
+          # Der eigene, gefilterte Verlauf statt GitHubs automatischer Liste:
+          # die zaehlt jeden Commit auf, auch Uebergabenotizen, und ist auf
+          # Englisch.
+          python backend/scripts/version_bauen.py notizen "$VORHER" >> notizen.md
+          echo >> notizen.md
+          if [ -n "$VORHER" ]; then
+            echo "**Vollstaendiger Vergleich:** [\`$VORHER...${{ steps.tag.outputs.tag }}\`](https://github.com/${{ github.repository }}/compare/$VORHER...${{ steps.tag.outputs.tag }})" >> notizen.md
+          fi
+          cat notizen.md
+
+      - name: Release veroeffentlichen
+        if: steps.tag.outputs.neu == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Mia OS ${{ steps.v.outputs.version }}
+          body_path: notizen.md
+          # 0.x heisst: noch im Aufbau, nichts ist in Stein. Ab 1.0 faellt
+          # das weg, das ist dann Mias Entscheidung.
+          prerelease: ${{ startsWith(steps.v.outputs.version, '0.') }}

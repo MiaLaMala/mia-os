@@ -1,0 +1,12 @@
+[Unit]
+Description=Mia OS Pull-Deployment (holt neue Commits von GitHub)
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/mia-os/pull-deploy.sh
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=600

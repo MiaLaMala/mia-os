@@ -1,0 +1,196 @@
+name: Apple-Apps
+
+# Baut die Mac- und die iPhone-App bei jeder Änderung an apple/.
+#
+# Warum ein eigener Workflow und nicht ein Job in ci.yml: dieser hier läuft
+# auf einem macOS-Runner, und der kostet bei GitHub das Zehnfache eines
+# Linux-Runners. Getrennt lässt er sich an den Pfaden aufhängen und läuft
+# nicht bei jeder Backend-Änderung mit.
+#
+# Was hier NICHT passiert: signieren und notarisieren. Dafür bräuchte es ein
+# Apple Developer Program (99 USD im Jahr) und die Zertifikate als Secrets.
+# Mia will die Apps nur auf ihren eigenen Geräten, nicht im Store. Die
+# gebauten Dateien werden deshalb unsigniert abgelegt und beim ersten Start
+# per Rechtsklick geöffnet.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apple/**'
+      - '.github/workflows/apple.yml'
+  pull_request:
+    paths:
+      - 'apple/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apple-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bauen:
+    # Nicht macos-latest: "latest" wandert, und mit ihm die Xcode-Version.
+    # Ein Build, der ohne eigene Änderung rot wird, kostet mehr Zeit als die
+    # eine Zeile, die ihn festnagelt.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Die Versionsnummer ist die Anzahl der Commits, wie bei Mia OS und
+          # beim Display. Ein flacher Klon zählt nur einen.
+          fetch-depth: 0
+
+      - name: Xcode wählen
+        run: |
+          # Die neueste installierte Fassung nehmen, statt einen festen Pfad
+          # zu raten. Auf den Runner-Abbildern liegen mehrere Xcodes
+          # nebeneinander, und welche das sind, ändert sich mit jedem
+          # Abbild-Update. Ein fest verdrahtetes /Applications/Xcode_16.app
+          # wäre genau die Zeile, die eines Morgens ohne eigene Änderung rot
+          # wird.
+          NEUESTE=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Nehme $NEUESTE"
+          sudo xcode-select -s "$NEUESTE"
+          xcodebuild -version
+          swift --version
+
+      - name: Version bestimmen
+        id: v
+        run: |
+          BASIS=$(cat apple/version.txt)
+          ANZAHL=$(git rev-list --count HEAD)
+          echo "version=${BASIS}.${ANZAHL}" >> "$GITHUB_OUTPUT"
+          echo "Version: ${BASIS}.${ANZAHL}"
+
+      - name: XcodeGen holen
+        run: |
+          curl -sSL -o /tmp/xg.zip \
+            https://github.com/yonaskolb/XcodeGen/releases/latest/download/xcodegen.zip
+          unzip -oq /tmp/xg.zip -d /tmp
+          echo "/tmp/xcodegen/bin" >> "$GITHUB_PATH"
+
+      - name: App-Symbol zeichnen
+        working-directory: apple
+        run: |
+          # Das Symbol liegt nicht als Binärdatei im Repo, es entsteht aus
+          # scripts/symbol_zeichnen.py. Eine PNG im Git ist eine Datei, die
+          # niemand nachvollziehen kann; ein Skript ist lesbar und
+          # reproduzierbar.
+          python3 -m pip install --quiet --disable-pip-version-check pillow
+          python3 scripts/symbol_zeichnen.py
+
+      - name: Projekt erzeugen
+        working-directory: apple
+        run: xcodegen generate
+
+      - name: Tests
+        working-directory: apple
+        run: swift test
+
+      - name: Beide Plattformen übersetzen
+        working-directory: apple
+        run: bash scripts/beide_pruefen.sh
+
+      - name: Mac-App bauen
+        working-directory: apple
+        run: |
+          xcodebuild -project MiaOS.xcodeproj \
+            -scheme "Mia OS (Mac)" \
+            -configuration Release \
+            -derivedDataPath build \
+            MARKETING_VERSION=${{ steps.v.outputs.version }} \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: iPhone-App bauen
+        working-directory: apple
+        run: |
+          xcodebuild -project MiaOS.xcodeproj \
+            -scheme "Mia OS (iPhone)" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build-ios \
+            MARKETING_VERSION=${{ steps.v.outputs.version }} \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Mac-App packen
+        working-directory: apple
+        run: |
+          APP="build/Build/Products/Release/Mia OS.app"
+          # ditto statt zip: es erhält die Ressourcen-Gabeln und die
+          # Symlinks im Bundle. Ein mit zip gepacktes .app startet auf dem
+          # Zielrechner mit "ist beschädigt".
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "MiaOS-Mac.zip"
+          shasum -a 256 MiaOS-Mac.zip | cut -d' ' -f1 > MiaOS-Mac.sha256
+          echo "Mac: $(stat -f%z MiaOS-Mac.zip) Bytes, $(cat MiaOS-Mac.sha256)"
+
+      - name: iPhone-App packen
+        working-directory: apple
+        run: |
+          # Ein .ipa ist ein ZIP mit der App unter Payload/. Ohne Signatur
+          # lässt es sich nicht über iTunes installieren, wohl aber mit
+          # Xcode oder Sideloadly auf ein Gerät bringen, das im
+          # Entwicklermodus ist.
+          rm -rf Payload && mkdir Payload
+          cp -R "build-ios/Build/Products/Release-iphoneos/Mia OS.app" Payload/
+          zip -qry MiaOS-iOS.ipa Payload
+          shasum -a 256 MiaOS-iOS.ipa | cut -d' ' -f1 > MiaOS-iOS.sha256
+          echo "iOS: $(stat -f%z MiaOS-iOS.ipa) Bytes"
+
+      - name: Dateien ablegen
+        uses: actions/upload-artifact@v7
+        with:
+          name: apps-${{ steps.v.outputs.version }}
+          path: |
+            apple/MiaOS-Mac.zip
+            apple/MiaOS-iOS.ipa
+            apple/*.sha256
+          retention-days: 90
+
+      # Die gebauten Apps kommen in einen eigenen Zweig, der nur sie enthält.
+      # Genau derselbe Weg wie bei der Display-Firmware: Mia OS holt sich den
+      # Zweig mit dem vorhandenen Deploy-Key und reicht die Dateien an die
+      # Geräte weiter. Ein Zweig kommt über SSH und braucht kein Token im
+      # Gerät.
+      - name: In den Zweig legen
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        working-directory: apple
+        run: |
+          rm -rf /tmp/zweig && mkdir /tmp/zweig
+          cp MiaOS-Mac.zip MiaOS-iOS.ipa /tmp/zweig/
+
+          cat > /tmp/zweig/apps.json <<ENDE
+          {
+            "version": "${{ steps.v.outputs.version }}",
+            "commit": "${{ github.sha }}",
+            "gebaut_am": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "mac": {
+              "datei": "MiaOS-Mac.zip",
+              "groesse": $(stat -f%z MiaOS-Mac.zip),
+              "sha256": "$(cat MiaOS-Mac.sha256)"
+            },
+            "ios": {
+              "datei": "MiaOS-iOS.ipa",
+              "groesse": $(stat -f%z MiaOS-iOS.ipa),
+              "sha256": "$(cat MiaOS-iOS.sha256)"
+            }
+          }
+          ENDE
+
+          cd /tmp/zweig
+          git init -q
+          git config user.name "Mia Grünwald"
+          git config user.email "mia_gruenwald08@outlook.de"
+          git add -A
+          git commit -q -m "Apps ${{ steps.v.outputs.version }}"
+          # Ohne Historie: der Zweig trägt immer nur die aktuellen Dateien.
+          # Sonst wächst das Repo mit jedem Bau um etliche Megabyte.
+          git push -q --force \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
+            HEAD:apps
+          echo "Apps ${{ steps.v.outputs.version }} im Zweig 'apps'"

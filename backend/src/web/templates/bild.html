@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{{ titel }} · {{ owner }}{% endblock %}
+
+{#
+  Ein Bild gross ansehen.
+
+  Bewusst kein Editor drumherum: OnlyOffice kann mit einem JPEG nichts
+  anfangen, und ein Bild braucht auch nichts weiter als eine Seite, auf der
+  es steht. Kopfzeile im selben Zuschnitt wie beim Editor, damit der Weg
+  zurueck an derselben Stelle sitzt.
+#}
+
+{% block style %}
+    .kopf {
+      display: flex; align-items: center; gap: .75rem;
+      height: 3.25rem; padding: 0 .75rem 0 .5rem;
+      border-bottom: 1px solid var(--linie); background: var(--flaeche);
+    }
+    .zurueck {
+      display: inline-flex; align-items: center; gap: .25rem;
+      height: 2.25rem; padding: 0 .75rem 0 .5rem; border-radius: 999px;
+      color: var(--akzent); font-size: .875rem; font-weight: 500;
+      transition: background .15s;
+    }
+    .zurueck:hover { background: var(--erhoben); }
+    .titel { min-width: 0; flex: 1; }
+    .titel h1 {
+      margin: 0; font-size: .9375rem; font-weight: 600; letter-spacing: -.01em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .extern {
+      display: grid; place-items: center; width: 2.25rem; height: 2.25rem;
+      border-radius: 999px; color: var(--gedaempft);
+      transition: background .15s, color .15s;
+    }
+    .extern:hover { background: var(--erhoben); color: var(--text); }
+
+    /* Dunkler Hintergrund: ein Scan ist weiss, und weiss auf weiss laesst das
+       Blatt ausfransen. So sieht man, wo das Papier aufhoert. */
+    .flaeche {
+      height: calc(100dvh - 3.25rem);
+      display: grid; place-items: center;
+      overflow: auto; background: #1c1c1e; padding: 1rem;
+    }
+    /* Ganz sichtbar statt formatfuellend: ein Bescheid soll am Stueck
+       dastehen, nicht angeschnitten. */
+    .flaeche img {
+      max-width: 100%; max-height: 100%;
+      object-fit: contain; border-radius: .5rem;
+      cursor: zoom-in;
+    }
+    /* Am Handy ist ein A4-Blatt in voller Hoehe zu klein zum Lesen, und
+       ein Bescheid ist genau das, was man lesen will. Antippen zeigt das
+       Blatt in voller Breite, dann wird gescrollt. Am gerenderten Bild
+       aufgefallen: alles war da, nur unlesbar.
+
+       ``start start`` statt ``start center``: beim Zentrieren steht links
+       vom Bild kein Scrollweg zur Verfuegung, und der Zeilenanfang bleibt
+       unerreichbar abgeschnitten. Genau dort steht "Aktenzeichen:". Auch das
+       erst am Bild gesehen, der erste Versuch mit scrollLeft blieb wirkungslos. */
+    .flaeche.gross { place-items: start start; padding: 0; }
+    .flaeche.gross img {
+      max-width: none; max-height: none;
+      width: max(100%, 900px);
+      border-radius: 0;
+      cursor: zoom-out;
+    }
+    .fehler { color: var(--gedaempft); font-size: .875rem; text-align: center; }
+{% endblock %}
+
+{% block content %}
+<header class="kopf">
+  <a class="zurueck" href="{{ zurueck }}">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 7.5 9.5 12 14 16.5"/></svg>
+    Dokumente
+  </a>
+  <div class="titel">
+    <h1>{{ titel }}</h1>
+  </div>
+  <a class="extern" href="{{ quelle }}" download="{{ titel }}" title="Herunterladen" aria-label="Herunterladen">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m8 11.5 4 4 4-4"/><path d="M5 19.5h14"/></svg>
+  </a>
+</header>
+
+<div class="flaeche" id="flaeche">
+  {# onerror statt stiller Leere: ist die Datei weg, soll dastehen warum. #}
+  <img src="{{ quelle }}" alt="{{ titel }}"
+       onerror="this.replaceWith(Object.assign(document.createElement('p'),{className:'fehler',textContent:'Das Bild lässt sich gerade nicht laden.'}))">
+</div>
+
+<script>
+  // Antippen schaltet zwischen "ganzes Blatt" und "lesbar gross" um.
+  // Ohne JavaScript bleibt das Blatt ganz sichtbar, das ist der brauchbare
+  // Ausgangszustand und keine kaputte Seite.
+  (function () {
+    var flaeche = document.getElementById("flaeche");
+    flaeche.addEventListener("click", function (e) {
+      if (e.target.tagName !== "IMG") return;
+      var gross = flaeche.classList.toggle("gross");
+      // Beim Vergroessern nach oben UND nach links: der Briefkopf steht oben,
+      // und Behoerdenpost ist linksbuendig. Ohne das Zuruecksetzen bleibt die
+      // Flaeche mittig stehen und schneidet den Zeilenanfang ab, also genau
+      // die Stelle, an der "Aktenzeichen:" beginnt. Am Bild aufgefallen.
+      if (gross) { flaeche.scrollTop = 0; flaeche.scrollLeft = 0; }
+    });
+  })();
+</script>
+{% endblock %}

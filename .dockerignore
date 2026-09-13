@@ -1,0 +1,26 @@
+# Was NICHT in den Build-Kontext gehört.
+#
+# Bewusst ohne `.git`: daraus entsteht im Builder die Version samt
+# Änderungsverlauf (scripts/version_bauen.py). Ins fertige Abbild kommt sie
+# trotzdem nicht, dort landet nur das erzeugte version.json.
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+*.egg-info/
+
+# Das Frontend wird in Stufe 1 selbst gebaut, node_modules würde den Kontext
+# um ein Vielfaches aufblähen.
+frontend/node_modules/
+frontend/dist/
+
+# Zugangsdaten haben in einem Abbild nichts verloren.
+.env
+*.db
+
+.github/

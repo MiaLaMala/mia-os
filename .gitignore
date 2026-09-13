@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# Tests & Coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets & lokale Daten
+.env
+*.db
+*.db-shm
+*.db-wal
+.previous-image
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Ergebnis des Frontend-Builds, entsteht beim Bauen neu
+src/web/static/gebaut/
+frontend/node_modules/
+
+# MCP-Server
+mcp/.venv/
+mcp/uv.lock
+
+# Apple: von XcodeGen und Xcode erzeugt, nicht von Hand geschrieben.
+# Die Quelle ist apple/project.yml, daraus entsteht das Projekt neu.
+apple/MiaOS.xcodeproj/
+apple/MiaOSMac/Info.plist
+apple/MiaOSiOS/
+apple/.build/
+apple/build*/
+apple/Payload/
+apple/*.ipa
+apple/*.zip
+apple/*.sha256
+# Das App-Symbol entsteht aus scripts/symbol_zeichnen.py. Eine PNG im Git
+# ist eine Datei, die niemand nachvollziehen kann.
+apple/MiaOS/Assets.xcassets/AppIcon.appiconset/*.png
+
+# Brainstorm-Server: Entwuerfe und Zustand, nichts davon gehoert ins Repo.
+.superpowers/

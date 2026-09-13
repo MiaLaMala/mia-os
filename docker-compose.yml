@@ -1,0 +1,44 @@
+services:
+  mia-os:
+    image: ghcr.io/mialamala/mia-os:latest
+    container_name: mia-os
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - mia-os-data:/var/lib/mia-os
+      # Die drei Schluessel, die der Dienst braucht. Jeder nur lesend, jeder
+      # fuer genau eine Sache:
+      #
+      #   kuma_key      darf auf pve eine einzige Abfrage ausfuehren
+      #                 (siehe authorized_keys dort), sonst nichts.
+      #   firmware_key  Deploy-Key fuer jana-desktop, holt die Display-
+      #                 Firmware aus dem Zweig "firmware".
+      #   apps_key      Deploy-Key fuer mia-os selbst, holt die gebauten
+      #                 Mac- und iPhone-Apps aus dem Zweig "apps".
+      #
+      # Zwei getrennte GitHub-Schluessel, weil ein Deploy-Key dort immer nur
+      # fuer EIN Repo gilt. Auf dem LXC liegt der apps_key bereits als
+      # /root/.ssh/id_ed25519; er gehoert nach /opt/mia-os/apps_key mit
+      # chmod 600 und UID 1000, weil der Container als "mia" laeuft.
+      - ./kuma_key:/etc/mia-os/kuma_key:ro
+      - ./firmware_key:/etc/mia-os/firmware_key:ro
+      - ./apps_key:/etc/mia-os/apps_key:ro
+    env_file:
+      - .env
+    environment:
+      DB_PATH: /var/lib/mia-os/mia-os.db
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health', timeout=3).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mia-os-data:

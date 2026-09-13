@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="de"{% if thema() %} data-thema="{{ thema() }}"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}{{ owner }}{% endblock %}</title>
+  <link rel="preload" href="/static/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+  <style>
+    /* Schlanker Rahmen fuer die serverseitigen Restseiten (Editor, 404).
+       Dieselben Tokens wie in frontend/src/app.css. */
+    @font-face {
+      font-family: "MiaSans";
+      src: url("/static/fonts/InterVariable.woff2") format("woff2");
+      font-weight: 100 900;
+      font-display: swap;
+    }
+    :root {
+      --grund: #0b0c0e; --flaeche: #141518; --erhoben: #1c1e22; --linie: #26282e;
+      --text: #f2f3f5; --gedaempft: #9096a0; --akzent: #0a84ff; --akzent-text: #fff;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --grund: #f5f5f7; --flaeche: #fff; --erhoben: #f0f0f3; --linie: #e3e3e7;
+        --text: #16171a; --gedaempft: #6b6f78; --akzent: #0071e3;
+      }
+    }
+    :root[data-thema="rot"] { --akzent: #ff2d55; }
+    @media (prefers-color-scheme: light) { :root[data-thema="rot"] { --akzent: #c9184a; } }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: var(--grund); color: var(--text);
+      font-family: "MiaSans", system-ui, -apple-system, sans-serif;
+      font-variant-numeric: tabular-nums;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+    svg { display: block; }
+    {% block style %}{% endblock %}
+  </style>
+</head>
+<body>
+  {% block content %}{% endblock %}
+</body>
+</html>

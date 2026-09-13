@@ -1,0 +1,192 @@
+# Woraus die Apps gebaut werden.
+#
+# XcodeGen macht daraus eine .xcodeproj. Der Grund, es so zu machen und nicht
+# die .xcodeproj einzuchecken: eine pbxproj ist eine Datei mit Zufallsnamen
+# für jede Zeile, sie lässt sich nicht sinnvoll lesen und bei jeder Änderung
+# gibt es Konflikte. Diese Datei hier kann man lesen.
+#
+# Erzeugen:  xcodegen generate
+name: MiaOS
+
+options:
+  bundleIdPrefix: dev.mia-gruenwald
+  deploymentTarget:
+    macOS: "14.0"
+    iOS: "17.0"
+  createIntermediateGroups: true
+  # Nur Apple Silicon. Ein Intel-Teil im Fettpaket verdoppelt die Bauzeit für
+  # Geräte, die es hier nicht gibt: Mias MacBook hat einen A18 Pro.
+  defaultConfig: Debug
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    # Swift 6 prüft Nebenläufigkeit beim Übersetzen. Das ist der Grund, warum
+    # `Zentrale` @MainActor ist und `Draht` ein actor: hier fällt auf, wenn
+    # ein Wert zwischen beiden wandert, ohne dafür gemacht zu sein.
+    SWIFT_STRICT_CONCURRENCY: complete
+    DEVELOPMENT_TEAM: ""
+    # Ohne bezahltes Programm signiert Xcode mit dem Entwicklerzertifikat,
+    # das ohnehin auf dem Rechner liegt. Für Mac reicht das dauerhaft, für
+    # iPhone gilt das Ergebnis sieben Tage.
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "0.1"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  # --- Mac ---------------------------------------------------------------
+  MiaOS-Mac:
+    type: application
+    platform: macOS
+    sources:
+      - path: MiaOS
+    settings:
+      base:
+        PRODUCT_NAME: Mia OS
+        PRODUCT_BUNDLE_IDENTIFIER: dev.mia-gruenwald.mia-os
+        INFOPLIST_KEY_NSHumanReadableCopyright: "Mia Grünwald"
+        # Ohne das startet die App im Dock ohne Menüleiste.
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_ENTITLEMENTS: MiaOSMac/MiaOS.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: MiaOSMac/Info.plist
+      properties:
+        CFBundleDisplayName: Mia OS
+        LSMinimumSystemVersion: "14.0"
+        # Koppeln per Link: miaos://koppeln?code=123456
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.mia-gruenwald.mia-os
+            CFBundleURLSchemes: [miaos]
+        # Die App redet mit einem Server im Heimnetz, dessen Zertifikat von
+        # einem eigenen Wildcard kommt. Kein Ausnahmefall nötig: das
+        # Zertifikat ist gültig, es ist nur nicht öffentlich erreichbar.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+
+  # --- iPhone ------------------------------------------------------------
+  MiaOS-iOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: MiaOS
+    settings:
+      base:
+        PRODUCT_NAME: Mia OS
+        PRODUCT_BUNDLE_IDENTIFIER: dev.mia-gruenwald.mia-os
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: MiaOSiOS/MiaOS.entitlements
+    dependencies:
+      - target: MiaOSWidget
+    info:
+      path: MiaOSiOS/Info.plist
+      properties:
+        CFBundleDisplayName: Mia OS
+        UILaunchScreen: {}
+        # Ohne diesen Text beendet iOS die App in dem Moment, in dem sie die
+        # Kamera anfordert. Kein Dialog, kein Fehler: sofortiger Absturz.
+        NSCameraUsageDescription: Zum Scannen von Belegen und Briefen.
+        # Koppeln per Link: miaos://koppeln?code=123456
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.mia-gruenwald.mia-os
+            CFBundleURLSchemes: [miaos]
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+
+  # --- Widget ------------------------------------------------------------
+  #
+  # Eine eigene Erweiterung mit eigenem Prozess. Sie teilt sich mit der App
+  # nur die App Group: darin liegen die zuletzt geholten Zahlen, damit das
+  # Widget nichts nachladen muss.
+  MiaOSWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: MiaOSWidget
+      - path: MiaOS/Modelle
+      # Ablage.swift allein, nicht der ganze Netz-Ordner: ein Widget soll
+      # nicht einmal die Moeglichkeit haben, selbst ins Netz zu gehen.
+      - path: MiaOS/Netz/Ablage.swift
+    settings:
+      base:
+        PRODUCT_NAME: Mia OS
+        PRODUCT_BUNDLE_IDENTIFIER: dev.mia-gruenwald.mia-os.widget
+        # Der Modulname wird sonst aus PRODUCT_NAME abgeleitet, und der ist
+        # bei App und Widget derselbe: beide schrieben dann in
+        # Mia_OS.swiftmodule und der Build brach mit "Multiple commands
+        # produce" ab. Der angezeigte Name bleibt "Mia OS".
+        PRODUCT_MODULE_NAME: MiaOSWidget
+        CODE_SIGN_ENTITLEMENTS: MiaOSWidget/MiaOSWidget.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+    info:
+      path: MiaOSWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Mia OS
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+
+  # --- Apple Watch -------------------------------------------------------
+  #
+  # Eine eigenstaendige Uhr-App ("independent"), kein Anhaengsel des iPhones:
+  # sie holt ihre Daten selbst ueber WLAN oder Mobilfunk. Eine Uhr, die nur
+  # mit dem Telefon in Reichweite funktioniert, ist genau dann nutzlos, wenn
+  # man sie braucht.
+  MiaOS-Watch:
+    type: application
+    platform: watchOS
+    sources:
+      # Netz und Modelle sind dieselben wie beim iPhone. Die Ansichten NICHT:
+      # eine Uhr-App ist keine kleine iPhone-App, sie wird zwei Sekunden lang
+      # angesehen, waehrend der Arm schon wieder sinkt.
+      - path: MiaOS/Netz
+      - path: MiaOS/Modelle
+      - path: MiaOSWatch
+    settings:
+      base:
+        PRODUCT_NAME: Mia OS
+        PRODUCT_BUNDLE_IDENTIFIER: dev.mia-gruenwald.mia-os.watchkitapp
+        WATCHOS_DEPLOYMENT_TARGET: "10.0"
+        TARGETED_DEVICE_FAMILY: "4"
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+    info:
+      path: MiaOSWatch/Info.plist
+      properties:
+        CFBundleDisplayName: Mia OS
+        # Ohne diesen Schluessel haelt watchOS die App fuer das Anhaengsel
+        # einer iPhone-App und startet sie nicht allein.
+        WKApplication: true
+        WKWatchOnly: false
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+
+  # --- Tests -------------------------------------------------------------
+  MiaOSTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: MiaOSTests
+    dependencies:
+      - target: MiaOS-Mac
+
+schemes:
+  Mia OS (Mac):
+    build:
+      targets:
+        MiaOS-Mac: all
+        MiaOSTests: [test]
+    test:
+      targets: [MiaOSTests]
+  Mia OS (iPhone):
+    build:
+      targets:
+        MiaOS-iOS: all
+  Mia OS (Uhr):
+    build:
+      targets:
+        MiaOS-Watch: all

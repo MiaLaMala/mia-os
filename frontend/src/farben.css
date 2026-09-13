@@ -1,0 +1,33 @@
+/* Erzeugt aus farben.json. Nicht von Hand aendern. */
+
+:root {
+  --grund: #fdf9f9;
+  --flaeche: #ffffff;
+  --erhoben: #f7f0ef;
+  --linie: #e6dbdb;
+  --text: #1b1414;
+  --gedaempft: #695959;
+  --akzent: #c70030;
+  --akzent_matt: #ffc6c4;
+  --akzent_hauch: #ffeae9;
+  --gut: #1a8a42;
+  --achtung: #a86400;
+  --fehler: #c4441f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grund: #100b0a;
+    --flaeche: #1c1414;
+    --erhoben: #281d1d;
+    --linie: #3d2f2f;
+    --text: #f6f0f0;
+    --gedaempft: #a29594;
+    --akzent: #f33e52;
+    --akzent_matt: #72101f;
+    --akzent_hauch: #371113;
+    --gut: #3ad26a;
+    --achtung: #ff9f0a;
+    --fehler: #ff7043;
+  }
+}
