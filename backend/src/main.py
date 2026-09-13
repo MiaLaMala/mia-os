@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
-from src import editor, ueber
+from src import betrieb, editor, ueber
 from src.api import router as api_router
 from src.categories import BY_KEY, CATEGORIES, LIVE
 from src.collectors import all_collectors
@@ -110,9 +110,22 @@ async def _collect_loop() -> None:
         await asyncio.sleep(minuten * 60)
 
 
+# Die laufende Sammelschleife. Die Bereitschaftsauskunft muss wissen, ob sie
+# noch lebt: stirbt sie still, laeuft der Dienst weiter und liefert auf ewig
+# dieselben Zahlen. Von aussen sieht das aus wie Betrieb.
+_sammel_task: asyncio.Task[None] | None = None
+
+
+def sammelschleife_laeuft() -> bool:
+    """Ob die Hintergrundschleife noch arbeitet."""
+    return _sammel_task is not None and not _sammel_task.done()
+
+
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    task = asyncio.create_task(_collect_loop())
+    global _sammel_task
+    _sammel_task = asyncio.create_task(_collect_loop())
+    task = _sammel_task
     yield
     task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
@@ -465,8 +478,39 @@ async def nicht_gefunden(request: Request, exc: Exception) -> Response:
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    """Fuer Uptime Kuma."""
+    """Liveness: laeuft der Prozess?
+
+    Fasst bewusst nichts an, was ausfallen kann. Uptime Kuma fragt von
+    aussen, und eine Antwort, die von der Datenbank abhaengt, wuerde den
+    Container bei einer langsamen Abfrage neu starten. Die eigentliche
+    Auskunft steht unter ``/health/bereit``.
+    """
     return {"status": "ok", "time": datetime.now(UTC).isoformat()}
+
+
+@app.get("/health/bereit")
+async def health_bereit() -> Response:
+    """Readiness: darf Verkehr hierhin?
+
+    Antwortet 503, wenn Datenbank oder Sammelschleife fehlen. Der
+    Statuscode ist der eigentliche Inhalt, weil jeder Load Balancer und
+    jeder Monitor ihn lesen kann, ohne JSON zu verstehen.
+    """
+    stand = betrieb.bereitschaft(get_store(), sammelschleife_laeuft())
+    return Response(
+        json.dumps(stand, ensure_ascii=False),
+        status_code=200 if stand["bereit"] else 503,
+        media_type="application/json",
+    )
+
+
+@app.get("/metrics")
+async def metrics() -> Response:
+    """Zahlen im Prometheus-Textformat, ohne personenbezogene Label."""
+    return Response(
+        betrieb.metriken(get_store(), sammelschleife_laeuft(), GESTARTET),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
 
 
 @app.get("/api/categories")

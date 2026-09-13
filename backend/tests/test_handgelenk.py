@@ -32,46 +32,45 @@ def _termin(store, titel: str, start: datetime, ganztags: bool = False) -> None:
     )
 
 
-def test_vergangene_termine_fallen_raus(client: TestClient) -> None:
+def test_vergangene_termine_fallen_raus(client: TestClient, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     """Der Kern des Ganzen.
 
     Ein Termin um neun ist um halb elf keine nuetzliche Anzeige mehr. Das
     Briefing zeigt den ganzen Tag, die Uhr zeigt, was noch kommt.
 
-    **Feste Uhrzeiten statt ``jetzt + 2 Stunden``:** dieser Test lief vom
-    13.09.2026 an vier Stunden lang gruen und fiel um 22:15 um. Mit einem
-    relativen Abstand liegt der spaetere Termin nach 22 Uhr am naechsten Tag
-    und faellt aus ``heute`` heraus. Die Uhrzeiten werden deshalb um den
-    echten Jetzt-Zeitpunkt herum gelegt, aber am selben Tag gehalten.
+    **Gefaelschte Uhrzeit statt Rechnerei um den echten Jetzt-Zeitpunkt:**
+    dieser Test hat sich zweimal selbst zerlegt. Erst mit ``jetzt + 2
+    Stunden`` (fiel um 22:15 um, weil der Termin auf den naechsten Tag
+    rutschte), dann mit ``jetzt.hour - 1`` als Vergangenheit (fiel um 00:15
+    um, weil ``max(1, -1)`` die 01:00 ergibt und die um Mitternacht noch in
+    der Zukunft liegt). Jede Heuristik um die echte Uhr herum hat ein
+    Zeitfenster, in dem sie falsch liegt. Also wird die Uhr gefaelscht, wie
+    in ``test_jede_tageszeit`` auch: Mittag, davor zehn, danach zwei.
     """
+    import src.api as api_modul
     import src.main as m
 
     store = m.get_store()
-    jetzt = datetime.now()
     heute = date.today()
+    mittag = datetime.combine(heute, dtime(12, 0))
 
-    # Wir brauchen einen Zeitpunkt, an dem sowohl davor als auch danach noch
-    # Platz im selben Tag ist. Das ist zwischen 02:00 und 22:00 gegeben.
-    vorbei_um = max(1, min(jetzt.hour - 1, 21))
-    kommt_um = min(23, max(jetzt.hour + 1, vorbei_um + 1))
-    if kommt_um <= jetzt.hour:
-        # Zwischen 23:00 und Mitternacht gibt es kein "spaeter heute" mehr.
-        # Dann liegt der kommende Termin in derselben Stunde, ein paar
-        # Minuten weiter.
-        kommt_um = jetzt.hour
+    class GefaelschteZeit(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[no-untyped-def,override]
+            return mittag
+
+    monkeypatch.setattr(api_modul, "datetime", GefaelschteZeit)
 
     def am_tag(stunde: int, minute: int) -> str:
         return datetime.combine(heute, dtime(stunde, minute)).isoformat()
-
-    minute_kommt = 59 if kommt_um == jetzt.hour else 0
 
     store.replace_events(
         [
             {
                 "uid": "vorbei",
                 "title": "Schon gewesen",
-                "start_at": am_tag(vorbei_um, 0),
-                "end_at": am_tag(vorbei_um, 30),
+                "start_at": am_tag(10, 0),
+                "end_at": am_tag(10, 30),
                 "ganztags": False,
                 "location": "",
                 "calendar": "Privat",
@@ -79,7 +78,7 @@ def test_vergangene_termine_fallen_raus(client: TestClient) -> None:
             {
                 "uid": "kommt",
                 "title": "Kommt noch",
-                "start_at": am_tag(kommt_um, minute_kommt),
+                "start_at": am_tag(14, 0),
                 "end_at": None,
                 "ganztags": False,
                 "location": "Buxtehude",
@@ -91,10 +90,7 @@ def test_vergangene_termine_fallen_raus(client: TestClient) -> None:
     )
 
     daten = client.get("/api/handgelenk").json()
-    assert daten["naechster"] is not None, (
-        f"Kein kommender Termin gefunden. Jetzt {jetzt:%H:%M}, "
-        f"angelegt {vorbei_um}:00 und {kommt_um}:{minute_kommt:02d}."
-    )
+    assert daten["naechster"] is not None, "Um 12:00 wurde der 14-Uhr-Termin nicht gefunden."
     assert daten["naechster"]["titel"] == "Kommt noch"
     assert daten["naechster"]["ort"] == "Buxtehude"
     # Nur der eine kommt noch, also nichts weiter danach.

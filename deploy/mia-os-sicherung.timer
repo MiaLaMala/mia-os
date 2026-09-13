@@ -1,0 +1,14 @@
+[Unit]
+Description=Taeglich sichern, nachts um drei
+
+[Timer]
+# 03:15 statt 03:00: um die volle Stunde laufen auf dem Host mehrere Dinge
+# gleichzeitig, und die beiden Kerne des LXC sind schnell voll.
+OnCalendar=*-*-* 03:15:00
+# Wenn der Container aus war, wird die Sicherung beim naechsten Start
+# nachgeholt. Sonst faellt ein Tag lautlos aus.
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

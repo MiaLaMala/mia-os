@@ -1,0 +1,10 @@
+[Unit]
+Description=Mia OS: Datenbank sichern und die Sicherung zurueckspielen
+Documentation=file:/opt/mia-os/sicherung.py
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/mia-os/sicherung.py
+# Der Dienst laeuft nicht lange und soll den naechtlichen Lauf nicht
+# verschleppen, wenn die Datenbank einmal haengt.
+TimeoutStartSec=600

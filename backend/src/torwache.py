@@ -51,6 +51,21 @@ OFFEN = frozenset(
     }
 )
 
+# Betriebsauskunft: dieselbe Sperre wie die Schnittstelle.
+#
+# ``/health`` sagt nur "ok". ``/health/bereit`` und ``/metrics`` sagen, welche
+# Quellen klemmen, wie gross die Datenbank ist und wie lange der Dienst
+# laeuft. Das ist nichts Persoenliches, aber es ist eine Landkarte fuer
+# jemanden, der einen Weg herein sucht, und es steht unter einem Namen, den
+# das ganze Netz aufloesen kann. Uptime Kuma und Prometheus stehen im
+# Heimnetz und kommen ueber die Netzpruefung herein, ohne Schluessel.
+BETRIEB = frozenset(
+    {
+        "/health/bereit",
+        "/metrics",
+    }
+)
+
 
 def _adresse(request: Request) -> str:
     """Die echte Adresse des Anfragenden.
@@ -84,7 +99,7 @@ async def torwache(request: Request, weiter: Callable[[Request], Awaitable[Respo
 
     # Alles, was keine Schnittstelle ist, geht durch: die Oberflaeche, die
     # gebauten Buendel, die Symbole.
-    if not pfad.startswith("/api") and pfad != "/health":
+    if not pfad.startswith("/api") and pfad != "/health" and pfad not in BETRIEB:
         return await weiter(request)
 
     if pfad in OFFEN:
