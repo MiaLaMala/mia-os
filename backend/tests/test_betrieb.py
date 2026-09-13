@@ -117,11 +117,13 @@ def test_metriken_tragen_keine_persoenlichen_label(client: TestClient) -> None:
 
     store = m.get_store()
     store.record_run("dokumente", True, None, 40)
-    store.create_entry(titel="Arztbericht Endokrinologie", datum="2026-09-14")
+    # Ein Titel, der in keiner Metrik auftauchen darf. Bewusst harmlos
+    # gewaehlt: das Repo ist oeffentlich, und Testdaten sind Daten.
+    store.create_entry(titel="Rechnung Stadtwerke Beispielstadt", datum="2026-09-14")
 
     text = client.get("/metrics").text
-    assert "Arztbericht" not in text
-    assert "Endokrinologie" not in text
+    assert "Rechnung" not in text
+    assert "Stadtwerke" not in text
     # Ein Label gibt es, und zwar genau eines, mit technischen Namen.
     for zeile in text.splitlines():
         if zeile.startswith("#") or "{" not in zeile:
