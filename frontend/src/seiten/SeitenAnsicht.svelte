@@ -189,7 +189,7 @@
             type="button"
             onclick={loeschen}
             class="flex w-full items-center gap-2 rounded-klein px-2.5 py-2 text-left text-sm
-                   text-schlecht transition-colors hover:bg-erhoben-2"
+                   text-fehler transition-colors hover:bg-erhoben-2"
           >
             <Symbol name="trash" groesse={15} />
             Seite löschen

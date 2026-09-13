@@ -128,7 +128,7 @@
 <p
   class="mt-2 min-h-5 text-center text-xs transition-opacity duration-200"
   class:opacity-0={!hinweis}
-  class:text-schlecht={hinweisFehler}
+  class:text-fehler={hinweisFehler}
   class:text-gut={!hinweisFehler}
   role="status"
   aria-live="polite"

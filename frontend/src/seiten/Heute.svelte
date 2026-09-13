@@ -186,7 +186,7 @@
             {#if e.datum}
               <span
                 class="ziffern shrink-0 text-xs"
-                class:text-schlecht={e.datum < tag}
+                class:text-fehler={e.datum < tag}
                 class:text-gedaempft={e.datum >= tag}
               >
                 {tagwort(e.datum)}
@@ -241,7 +241,7 @@
       {#if gesundheit?.caption?.display}
         <span class="flex items-center gap-1 text-xs text-gedaempft">
           {#if gesundheit.caption.trend}
-            <span class={gesundheit.caption.trend === "down" ? "text-gut" : "text-warn"}>
+            <span class={gesundheit.caption.trend === "down" ? "text-gut" : "text-achtung"}>
               <Symbol
                 name={gesundheit.caption.trend === "down" ? "arrow-down" : "arrow-up"}
                 groesse={12}
@@ -266,7 +266,7 @@
         <span
           class="size-2.5 rounded-full"
           class:bg-gut={homelabGut}
-          class:bg-schlecht={homelab?.lead && !homelabGut}
+          class:bg-fehler={homelab?.lead && !homelabGut}
           class:bg-leise={!homelab?.lead}
         ></span>
         <span class="anzeige ziffern text-[1.5rem] leading-none">

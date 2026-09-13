@@ -15,14 +15,22 @@ enum Farbe {
     static let flaeche = Color(light: "#ffffff", dark: "#1c1414")
     /// Seitenleiste, Balken
     static let erhoben = Color(light: "#f7f0ef", dark: "#281d1d")
+    /// gedrueckter Zustand, zweite Stufe
+    static let erhoben_2 = Color(light: "#efe4e3", dark: "#332625")
     /// Trenner, Raender
     static let linie = Color(light: "#e6dbdb", dark: "#3d2f2f")
+    /// Trenner innerhalb einer Liste
+    static let linie_weich = Color(light: "#f0e8e7", dark: "#2c2121")
     /// Lesetext, Titel
     static let text = Color(light: "#1b1414", dark: "#f6f0f0")
     /// Nebensaechliches
     static let gedaempft = Color(light: "#695959", dark: "#a29594")
+    /// Dritte Ebene: Zeitstempel, Zaehler
+    static let leise = Color(light: "#9a8a89", dark: "#6d5e5d")
     /// was JETZT dran ist
     static let akzent = Color(light: "#c70030", dark: "#f33e52")
+    /// Schrift auf der Akzentflaeche
+    static let akzent_text = Color(light: "#ffffff", dark: "#ffffff")
     /// Kante am hervorgehobenen Block
     static let akzent_matt = Color(light: "#ffc6c4", dark: "#72101f")
     /// Flaeche hinter dem Hervorgehobenen

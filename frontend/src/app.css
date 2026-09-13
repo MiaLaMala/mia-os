@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Die Farben. Erzeugt aus farben.json, hier nur eingebunden.
+   Bis zum 14.09.2026 standen sie direkt darunter von Hand, in Systemblau,
+   waehrend Apple und Display laengst auf Rot liefen: Mia haette zwei
+   verschieden aussehende Mia OS gehabt. Die Datei ueberschreibt
+   scripts/farben_bauen.py, an ihr wird nichts von Hand geaendert. */
+@import "./farben.css";
+
 /* Inter Variable, selbst gehostet, laut DESIGN.md Mias Vorgabe. Ohne diese
    Regel lief die App in der Systemschrift: die Tokens sagten Inter, geladen
    hat sie niemand. Der interne Name ist "MiaSans", damit sich nichts mit
@@ -12,24 +19,9 @@
   font-display: swap;
 }
 
-/* Design-Tokens aus DESIGN.md. Eine Stelle für alle Farben und Maße:
-   Tailwind erzeugt daraus die Hilfsklassen (bg-grund, text-gedaempft, ...). */
+/* Masse und Bewegung. Die Farben stehen in farben.css, hier steht nur, was
+   keine Farbe ist. */
 @theme {
-  --color-grund: #0b0c0e;
-  --color-flaeche: #141518;
-  --color-erhoben: #1c1e22;
-  --color-erhoben-2: #24272c;
-  --color-linie: #26282e;
-  --color-linie-weich: #1d1f24;
-  --color-text: #f2f3f5;
-  --color-gedaempft: #9096a0;
-  --color-leise: #5c616b;
-  --color-akzent: #0a84ff;
-  --color-akzent-text: #ffffff;
-  --color-gut: #30d158;
-  --color-warn: #ff9f0a;
-  --color-schlecht: #ff453a;
-
   --radius-karte: 16px;
   --radius-element: 10px;
   --radius-klein: 7px;
@@ -42,35 +34,18 @@
   --shadow-menue: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--color-linie);
 }
 
+/* Schatten im Hellen: dieselbe Form, weniger Schwaerze. Ein Schatten, der
+   fuer einen dunklen Grund gerechnet ist, sieht auf Weiss aus wie Schmutz. */
 @media (prefers-color-scheme: light) {
   :root:not([data-thema-modus="dunkel"]) {
-    --color-grund: #f5f5f7;
-    --color-flaeche: #ffffff;
-    --color-erhoben: #f0f0f3;
-    --color-erhoben-2: #e6e6ea;
-    --color-linie: #e3e3e7;
-    --color-linie-weich: #ececef;
-    --color-text: #16171a;
-    --color-gedaempft: #6b6f78;
-    --color-leise: #a0a4ad;
-    --color-akzent: #0071e3;
     --shadow-blatt: 0 -8px 40px rgba(0, 0, 0, 0.14);
     --shadow-menue: 0 12px 40px rgba(0, 0, 0, 0.14), 0 0 0 1px var(--color-linie);
   }
 }
 
-/* Rotes Thema. Bewusst NICHT das Fehlerrot, sonst sähe jede aktive Auswahl
-   aus wie eine Störung. */
-:root[data-thema="rot"] {
-  --color-akzent: #ff2d55;
-  --color-schlecht: #ff6250;
-}
-
-@media (prefers-color-scheme: light) {
-  :root[data-thema="rot"] {
-    --color-akzent: #c9184a;
-    --color-schlecht: #d93a2b;
-  }
+:root[data-thema-modus="hell"] {
+  --shadow-blatt: 0 -8px 40px rgba(0, 0, 0, 0.14);
+  --shadow-menue: 0 12px 40px rgba(0, 0, 0, 0.14), 0 0 0 1px var(--color-linie);
 }
 
 @layer base {

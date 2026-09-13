@@ -197,7 +197,7 @@
                 type="button"
                 onclick={() => loeschen(a)}
                 aria-label="{a.titel} löschen"
-                class="shrink-0 rounded-full p-1 text-leise transition-colors hover:text-schlecht"
+                class="shrink-0 rounded-full p-1 text-leise transition-colors hover:text-fehler"
               >
                 <Symbol name="close" groesse={13} />
               </button>

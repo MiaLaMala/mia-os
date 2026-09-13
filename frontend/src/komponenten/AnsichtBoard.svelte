@@ -100,7 +100,7 @@
                   {#if e.datum}
                     <span
                       class="ziffern ml-auto text-[0.6875rem]"
-                      class:text-schlecht={e.datum < h && e.eigenschaften.status !== "fertig"}
+                      class:text-fehler={e.datum < h && e.eigenschaften.status !== "fertig"}
                       class:text-gedaempft={!(e.datum < h && e.eigenschaften.status !== "fertig")}
                     >
                       {tagwort(e.datum)}

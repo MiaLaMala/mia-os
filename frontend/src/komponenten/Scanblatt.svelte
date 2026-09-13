@@ -161,7 +161,7 @@
            pb-[max(1rem,env(safe-area-inset-bottom))] pt-2"
   >
     {#if fehler}
-      <p class="m-0 rounded-element bg-schlecht/10 px-3 py-2 text-sm text-schlecht">{fehler}</p>
+      <p class="m-0 rounded-element bg-fehler/10 px-3 py-2 text-sm text-fehler">{fehler}</p>
     {/if}
 
     {#if zeigeEcken}
@@ -250,7 +250,7 @@
     {:else}
       <!-- Ergebnis. Der Normalfall: einmal ansehen, einmal tippen. -->
       {#if !automatisch}
-        <p class="m-0 flex items-start gap-2 rounded-element bg-warn/10 px-3 py-2 text-xs text-warn">
+        <p class="m-0 flex items-start gap-2 rounded-element bg-achtung/10 px-3 py-2 text-xs text-achtung">
           <span class="mt-0.5 shrink-0"><Symbol name="filter" groesse={14} /></span>
           Ich habe die Blattkanten nicht sicher gefunden. Sieh dir das Ergebnis an und
           zieh die Ecken selbst, wenn etwas fehlt.

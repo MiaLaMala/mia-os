@@ -116,10 +116,10 @@
           <span
             class="size-2 shrink-0 rounded-full"
             class:bg-gut={q.ok}
-            class:bg-schlecht={!q.ok}
+            class:bg-fehler={!q.ok}
           ></span>
           <span class="flex-1 text-[0.9375rem] capitalize">{q.name}</span>
-          <span class="shrink-0 text-xs" class:text-schlecht={!q.ok} class:text-gedaempft={q.ok}>
+          <span class="shrink-0 text-xs" class:text-fehler={!q.ok} class:text-gedaempft={q.ok}>
             {q.ok ? "läuft" : "Fehler"}
           </span>
         </div>
@@ -158,7 +158,7 @@
               <span
                 class="mt-1.5 size-1.5 shrink-0 rounded-full"
                 class:bg-akzent={e.art === "neu"}
-                class:bg-warn={e.art === "fix"}
+                class:bg-achtung={e.art === "fix"}
                 title={e.art === "fix" ? "Fehler behoben" : "Neu"}
               ></span>
               <span class="min-w-0 flex-1 text-[0.9375rem] leading-snug">{e.titel}</span>

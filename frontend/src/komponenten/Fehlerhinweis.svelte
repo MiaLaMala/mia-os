@@ -5,8 +5,8 @@
 </script>
 
 <p
-  class="mb-4 flex items-center gap-2.5 rounded-element px-3.5 py-2.5 text-sm text-schlecht"
-  style="background: color-mix(in srgb, var(--color-schlecht) 10%, transparent)"
+  class="mb-4 flex items-center gap-2.5 rounded-element px-3.5 py-2.5 text-sm text-fehler"
+  style="background: color-mix(in srgb, var(--color-fehler) 10%, transparent)"
   role="alert"
 >
   <Symbol name="close" groesse={15} />

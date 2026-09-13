@@ -22,7 +22,7 @@
   let suche = $state("");
 
   const punktfarbe = (status: number) =>
-    status === 1 ? "bg-gut" : status === 3 ? "bg-warn" : "bg-schlecht";
+    status === 1 ? "bg-gut" : status === 3 ? "bg-achtung" : "bg-fehler";
 
   const gefiltert = $derived.by(() => {
     if (!daten) return [];
@@ -66,20 +66,20 @@
   <div
     class="karte mb-6 flex items-center gap-3.5 px-4 py-4"
     style={daten.lage.zustand === "unten"
-      ? "border-color: color-mix(in srgb, var(--color-schlecht) 35%, var(--color-linie))"
+      ? "border-color: color-mix(in srgb, var(--color-fehler) 35%, var(--color-linie))"
       : ""}
   >
     <span class="relative grid size-10 shrink-0 place-items-center">
       <span
         class="absolute inset-0 rounded-full opacity-20"
         class:bg-gut={daten.lage.zustand === "oben"}
-        class:bg-schlecht={daten.lage.zustand === "unten"}
+        class:bg-fehler={daten.lage.zustand === "unten"}
         class:bg-gedaempft={daten.lage.zustand === "unklar"}
       ></span>
       <span
         class="size-3 rounded-full"
         class:bg-gut={daten.lage.zustand === "oben"}
-        class:bg-schlecht={daten.lage.zustand === "unten"}
+        class:bg-fehler={daten.lage.zustand === "unten"}
         class:bg-gedaempft={daten.lage.zustand === "unklar"}
       ></span>
     </span>
@@ -101,7 +101,7 @@
             class="flex items-center gap-3 border-b border-linie-weich px-3.5 py-3 last:border-0"
             transition:slide={{ duration: 200 }}
           >
-            <span class="size-2.5 shrink-0 rounded-full bg-schlecht"></span>
+            <span class="size-2.5 shrink-0 rounded-full bg-fehler"></span>
             <span class="min-w-0 flex-1">
               <span class="block text-[0.9375rem] font-medium">{s.name}</span>
               {#if s.meldung}

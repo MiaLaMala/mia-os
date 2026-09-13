@@ -155,7 +155,7 @@
       <button
         type="button"
         onclick={() => abmelden(g)}
-        class="shrink-0 rounded-full px-3 py-1.5 text-xs font-medium text-schlecht
+        class="shrink-0 rounded-full px-3 py-1.5 text-xs font-medium text-fehler
                transition-colors hover:bg-erhoben"
       >
         Abmelden
@@ -164,6 +164,6 @@
   {/each}
 
   {#if fehler}
-    <p class="m-0 px-3.5 py-3 text-xs text-schlecht">{fehler}</p>
+    <p class="m-0 px-3.5 py-3 text-xs text-fehler">{fehler}</p>
   {/if}
 </Abschnitt>

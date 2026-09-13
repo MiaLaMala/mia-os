@@ -186,7 +186,7 @@
       class="ziffern w-24 border-0 bg-transparent text-[1.5rem] outline-none placeholder:text-leise"
     />
     <span class="text-gedaempft">kg</span>
-    <span class="flex-1 text-sm" class:text-gut={gewichtOk} class:text-schlecht={!gewichtOk}>
+    <span class="flex-1 text-sm" class:text-gut={gewichtOk} class:text-fehler={!gewichtOk}>
       {gewichtMeldung}
     </span>
     <button
@@ -222,7 +222,7 @@
             <span
               class="grid size-5 place-items-center rounded-full"
               class:text-gut={karte.caption.trend === "down"}
-              class:text-warn={karte.caption.trend === "up"}
+              class:text-achtung={karte.caption.trend === "up"}
               style="background: color-mix(in srgb, currentColor 15%, transparent)"
             >
               <Symbol
@@ -354,7 +354,7 @@
             <p class="m-0 mt-2 text-xs text-gedaempft">Nichts in wger gefunden. Neue Zutaten dort anlegen.</p>
           {/if}
           {#if essenMeldung}
-            <p class="m-0 mt-2 text-xs" class:text-gut={essenOk} class:text-schlecht={!essenOk}>
+            <p class="m-0 mt-2 text-xs" class:text-gut={essenOk} class:text-fehler={!essenOk}>
               {essenMeldung}
             </p>
           {/if}

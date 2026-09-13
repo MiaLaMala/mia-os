@@ -242,7 +242,7 @@
         {meldung}
       </p>
     {:else if fehler}
-      <p class="m-0 mt-3 px-1 text-sm text-schlecht">{fehler}</p>
+      <p class="m-0 mt-3 px-1 text-sm text-fehler">{fehler}</p>
     {:else if wahl}
       <p class="m-0 mt-3 px-1 text-xs text-gedaempft">Welche Zutat, {Math.round(wahl.gramm)} g?</p>
       <ul class="karte m-0 mt-2 list-none p-0">

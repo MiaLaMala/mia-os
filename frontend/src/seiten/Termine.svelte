@@ -338,7 +338,7 @@
 </div>
 
 {#if fehler}
-  <p class="mb-3 rounded-element px-3.5 py-2.5 text-sm text-schlecht" style="background: color-mix(in srgb, var(--color-schlecht) 10%, transparent)">
+  <p class="mb-3 rounded-element px-3.5 py-2.5 text-sm text-fehler" style="background: color-mix(in srgb, var(--color-fehler) 10%, transparent)">
     {fehler}
   </p>
 {/if}
@@ -447,7 +447,7 @@
     --fc-page-bg-color: transparent;
     --fc-neutral-bg-color: transparent;
     --fc-today-bg-color: transparent;
-    --fc-now-indicator-color: var(--color-schlecht);
+    --fc-now-indicator-color: var(--color-fehler);
     --fc-event-border-color: transparent;
     font-size: 0.8125rem;
     transition: opacity 200ms var(--ease-ruhig);

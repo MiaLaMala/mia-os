@@ -87,13 +87,41 @@ def pruefen(daten: dict) -> list[str]:
 
 
 def css_schreiben(daten: dict) -> Path:
-    zeilen = [f"/* {KOPF} */", "", ":root {"]
+    """Die Palette als Tailwind-Theme.
+
+    ``@theme`` statt ``:root``: Tailwind 4 erzeugt aus den Eintraegen dort
+    die Hilfsklassen (``bg-grund``, ``text-leise``). Stuenden die Werte in
+    ``:root``, waeren sie gueltige CSS-Variablen, aber ``text-leise`` gaebe
+    es nicht, und die Klassen in den Svelte-Dateien liefen ins Leere.
+
+    Unterstriche werden zu Bindestrichen: ``akzent_text`` heisst in
+    ``farben.json`` so, weil es dort ein JSON-Schluessel ist, in Tailwind
+    aber ``--color-akzent-text``, sonst passt die Klasse nicht dazu.
+
+    Die helle Fassung steht in ``@theme``, die dunkle in einer Medienabfrage
+    darunter. Der Zusatz ``:not([data-thema-modus="hell"])`` laesst Mia das
+    Thema in den Einstellungen festnageln, auch wenn das System etwas
+    anderes sagt.
+    """
+
+    def zeile(name: str, hexwert: str, einzug: str) -> str:
+        return f"{einzug}--color-{name.replace('_', '-')}: {hexwert};"
+
+    zeilen = [f"/* {KOPF} */", "", "@theme {"]
     for name, hexwert in farben(daten, "hell").items():
-        zeilen.append(f"  --{name}: {hexwert};")
-    zeilen += ["}", "", "@media (prefers-color-scheme: dark) {", "  :root {"]
+        zeilen.append(zeile(name, hexwert, "  "))
+    zeilen += ["}", "", "@media (prefers-color-scheme: dark) {", '  :root:not([data-thema-modus="hell"]) {']
     for name, hexwert in farben(daten, "dunkel").items():
-        zeilen.append(f"    --{name}: {hexwert};")
+        zeilen.append(zeile(name, hexwert, "    "))
     zeilen += ["  }", "}", ""]
+
+    # Dieselben Werte noch einmal als feste Auswahl, fuer den Fall, dass Mia
+    # das Thema selbst setzt statt dem System zu folgen.
+    for modus, thema in (("hell", "hell"), ("dunkel", "dunkel")):
+        zeilen.append(f':root[data-thema-modus="{modus}"] {{')
+        for name, hexwert in farben(daten, thema).items():
+            zeilen.append(zeile(name, hexwert, "  "))
+        zeilen += ["}", ""]
 
     ziel = WURZEL / "frontend" / "src" / "farben.css"
     ziel.write_text("\n".join(zeilen), encoding="utf-8")

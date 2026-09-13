@@ -109,7 +109,7 @@
                   {#if e.datum}
                     <span
                       class="ziffern text-xs"
-                      class:text-schlecht={e.datum < h && !fertig}
+                      class:text-fehler={e.datum < h && !fertig}
                       class:text-gedaempft={e.datum >= h || fertig}
                     >
                       {tagwort(e.datum)}

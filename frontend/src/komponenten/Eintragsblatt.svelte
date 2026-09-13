@@ -273,7 +273,7 @@
         aria-label="Eintrag löschen"
         title="Löschen"
         class="grid size-8 shrink-0 place-items-center rounded-full text-gedaempft
-               transition-colors duration-200 hover:bg-erhoben hover:text-schlecht"
+               transition-colors duration-200 hover:bg-erhoben hover:text-fehler"
       >
         <Symbol name="trash" groesse={16} />
       </button>
@@ -443,7 +443,7 @@
         />
 
         {#if hochladeFehler}
-          <p class="m-0 mb-2 px-1 text-xs text-schlecht">{hochladeFehler}</p>
+          <p class="m-0 mb-2 px-1 text-xs text-fehler">{hochladeFehler}</p>
         {:else if ocrHinweis}
           <p class="m-0 mb-2 px-1 text-xs text-gedaempft">{ocrHinweis}</p>
         {/if}
@@ -456,7 +456,7 @@
             <p class="m-0 text-xs text-gedaempft">Soll das heißen</p>
             <p class="m-0 mt-0.5 break-words text-[0.9375rem]">{namensvorschlag.name}</p>
             {#if umbenennFehler}
-              <p class="m-0 mt-1 text-xs text-schlecht">{umbenennFehler}</p>
+              <p class="m-0 mt-1 text-xs text-fehler">{umbenennFehler}</p>
             {/if}
             <div class="mt-2.5 flex gap-2">
               <button
@@ -488,7 +488,7 @@
             <p class="m-0 text-xs text-gedaempft">Gehört das nach</p>
             <p class="m-0 mt-0.5 truncate text-[0.9375rem]">{vorschlag.ordner}?</p>
             {#if verschiebeFehler}
-              <p class="m-0 mt-1 text-xs text-schlecht">{verschiebeFehler}</p>
+              <p class="m-0 mt-1 text-xs text-fehler">{verschiebeFehler}</p>
             {/if}
             <div class="mt-2.5 flex gap-2">
               <button
@@ -532,7 +532,7 @@
                     <span class="block truncate text-[0.9375rem]" class:text-gedaempft={a.fehlt}>
                       {a.name}
                     </span>
-                    <span class="block truncate text-xs" class:text-warn={a.fehlt} class:text-gedaempft={!a.fehlt}>
+                    <span class="block truncate text-xs" class:text-achtung={a.fehlt} class:text-gedaempft={!a.fehlt}>
                       {a.fehlt ? "nicht mehr am alten Ort" : a.folder}
                     </span>
                   </span>
