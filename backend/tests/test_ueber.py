@@ -279,6 +279,22 @@ def _vb() -> Any:
         ("Steuer", "Steuer"),
         ("aktuell", "aktuell"),
         ("Israel", "Israel"),
+        # "ue" nach einem Vokal ist nie ein Umlaut. Die Wortliste hatte hier
+        # 14 Luecken, gefunden durch einen Lauf ueber alle 3623 Woerter aus
+        # beiden Repo-Verlaeufen. "Bauen" wurde dort zu "Baün".
+        ("Bauen", "Bauen"),
+        ("bauen", "bauen"),
+        ("Einbauen", "Einbauen"),
+        ("zusammenbauen", "zusammenbauen"),
+        ("dauerhaft", "dauerhaft"),
+        ("neueste", "neueste"),
+        ("blauer", "blauer"),
+        ("grauen", "grauen"),
+        ("feuert", "feuert"),
+        # Und die Gegenprobe: nach einem KONSONANTEN wird weiter ersetzt.
+        ("pruefen", "prüfen"),
+        ("Gruenwald", "Grünwald"),
+        ("Buendel", "Bündel"),
     ],
 )
 def test_umlaute_zurueckholen(roh: str, erwartet: str) -> None:
@@ -290,20 +306,26 @@ def test_ganzer_verlauf_ohne_falsche_ersetzung() -> None:
     """Der echte Verlauf ist der ehrlichste Test.
 
     Eine Wortliste von Hand hatte nach 107 Commits schon 25 Lücken. Jetzt
-    greift eine Regel, und dieser Test läuft über alles, was je committet
-    wurde: findet er ein "Qülle" oder "Grösse", ist die Regel kaputt.
+    greifen Regeln, und dieser Test läuft über alles, was je committet
+    wurde: findet er ein "Qülle", "Grösse" oder "Baün", ist eine Regel kaputt.
+
+    **Das Muster prüfte zuerst nur ``öss`` und ``Qü``**, und genau deshalb
+    lief der Test grün, während im erzeugten Changelog "Baün" stand. Ein
+    Umlaut direkt hinter einem Vokal kommt im Deutschen nicht vor, das ist
+    das verlässlichere Merkmal für eine falsche Ersetzung.
     """
     import re
 
     modul = _vb()
     roh = modul._git("log", "--no-merges", "--format=%s%x1f%b%x1e")
 
+    falsch = re.compile(r"öss|[Qq][üäö]|[aeiouAEIOU][üÜ]")
     schlecht = set()
     for block in roh.split("\x1e"):
         for text in block.strip().split("\x1f"):
             for wort in re.findall(r"\b[A-Za-z]+\b", text):
                 neu = modul._wort_lesbar(wort)
-                if neu != wort and re.search(r"öss|[Qq][üäö]", neu):
+                if neu != wort and falsch.search(neu):
                     schlecht.add((wort, neu))
 
     assert not schlecht, f"Falsch ersetzt: {schlecht}"
@@ -319,19 +341,23 @@ def test_release_notizen_sind_lesbar() -> None:
     Historie liegt. Genau der Fehler, den ein Test nicht haben darf: rot nur
     da, wo man nicht hinsieht.
     """
-    import re
-
     modul = _vb()
     text = modul.notizen()
     assert "###" in text
 
-    # Keine umgeschriebenen Umlaute mehr, außer in qu-Wörtern.
-    uebrig = [
-        w
-        for w in re.findall(r"\b\w*(?:ae|oe|ue)\w*\b", text)
-        if not re.search(r"[Qq]ue", w) and w.lower() not in modul.NICHT_ERSETZEN
-    ]
-    assert not uebrig, f"Noch umgeschrieben: {uebrig}"
+    # Der Text muss bereits durch ``lesbar`` gelaufen sein. Geprüft wird das
+    # als Unveränderlichkeit: ein zweiter Lauf darf nichts mehr finden.
+    #
+    # Vorher stand hier eine nachgebaute Bedingung ("alles außer qu-Wörtern"),
+    # und die musste bei jeder neuen Regel mitgepflegt werden. Sie tat es
+    # nicht: als die Vokalregel dazukam, prüfte dieser Test noch die alte
+    # Welt. Eine Kopie der Regel weicht irgendwann ab und prüft dann das
+    # Falsche.
+    assert modul.lesbar(text) == text, "Die Notizen sind nicht durch lesbar() gelaufen"
+
+    # Und die Gegenprobe, dass ``lesbar`` überhaupt etwas tut: im Verlauf
+    # stehen umgeschriebene Umlaute, sonst wäre der Test oben wertlos.
+    assert modul.lesbar("Foto anhaengen") == "Foto anhängen"
 
 
 def test_release_notizen_ohne_historie() -> None:

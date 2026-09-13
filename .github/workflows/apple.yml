@@ -80,8 +80,16 @@ jobs:
           # scripts/symbol_zeichnen.py. Eine PNG im Git ist eine Datei, die
           # niemand nachvollziehen kann; ein Skript ist lesbar und
           # reproduzierbar.
-          python3 -m pip install --quiet --disable-pip-version-check pillow
-          python3 scripts/symbol_zeichnen.py
+          #
+          # In ein venv statt system-weit: das Python der macOS-Runner kommt
+          # von Homebrew und ist nach PEP 668 "externally managed". Ein
+          # schlichtes `pip install pillow` bricht dort mit
+          # "externally-managed-environment" ab, und zwar bei jedem einzelnen
+          # Lauf seit es diesen Schritt gibt. `--break-system-packages` wäre
+          # der kürzere Weg und genau das, wovor die Meldung warnt.
+          python3 -m venv /tmp/symbol-venv
+          /tmp/symbol-venv/bin/pip install --quiet --disable-pip-version-check pillow
+          /tmp/symbol-venv/bin/python scripts/symbol_zeichnen.py
 
       - name: Projekt erzeugen
         working-directory: apple

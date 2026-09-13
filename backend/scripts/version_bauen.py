@@ -55,19 +55,8 @@ IST_FEHLER = re.compile(r"\b(fix|behoben|beheb|repariert|korrigiert|Fehler)\b", 
 # denen "ae", "oe" oder "ue" keine Umschreibung ist: dort trifft die
 # Buchstabenfolge auf eine Silbengrenze ("Dau-er", "zu-erst", "Mus-eum").
 NICHT_ERSETZEN = {
-    # ue an einer Silbengrenze
-    "dauer",
-    "neuer",
-    "neue",
-    "neuen",
-    "neues",
-    "steuer",
-    "steuern",
-    "abenteuer",
-    "feuer",
-    "scheuer",
-    "teuer",
-    "treuer",
+    # ue an einer Silbengrenze, die die Vokalregel unten nicht erwischt:
+    # dort steht vor dem "ue" ein Konsonant.
     "zuerst",
     "museum",
     "linux",
@@ -106,6 +95,18 @@ _PAARE = (("ae", "ä"), ("oe", "ö"), ("ue", "ü"), ("Ae", "Ä"), ("Oe", "Ö"), 
 # dreimal in meinen eigenen Commits.
 _QU = re.compile(r"([Qq])ue")
 
+# **Nach einem Vokal ist "ue" nie ein Umlaut.** Das ist die zweite Regel, die
+# eine ganze Gruppe von Wortlisten ersetzt: bauen, dauerhaft, neueste, grauer,
+# feuert, blauer. Vor einem Umlaut-"ue" steht im Deutschen immer ein
+# Konsonant (fuer, Gruende, bueglen); trifft es auf einen Vokal, liegt eine
+# Silbengrenze dazwischen (bau-en, dau-erhaft, neu-este).
+#
+# Gefunden, indem die Regel gegen alle 3623 Woerter aus beiden Repo-Verlaeufen
+# laufen gelassen wurde: die Wortliste hatte 14 Luecken, darunter "Bauen" ->
+# "Baün", genau der Fall aus der Uebergabe. Eine Liste, die jemand pflegen
+# muss, ist eine Liste mit Luecken. Eine Regel hat keine.
+_VOKAL_UE = re.compile(r"([aeiouAEIOU])ue")
+
 # "ss" nach umgeschriebenem "oe" ist fast immer ein "ß": Groesse, groesser,
 # Stoesse. "Grösse" wäre schweizerisch und in Mias Oberfläche schlicht falsch.
 _OESS = re.compile(r"öss")
@@ -119,9 +120,11 @@ def _wort_lesbar(wort: str) -> str:
     if wort.lower() in NICHT_ERSETZEN:
         return wort
 
-    # "qu" vor der Ersetzung schützen und danach zurückholen. Ein Zeichen,
-    # das in keiner Commit-Nachricht vorkommt, dient als Platzhalter.
+    # "qu" und "ue" nach einem Vokal vor der Ersetzung schützen und danach
+    # zurückholen. Ein Zeichen, das in keiner Commit-Nachricht vorkommt,
+    # dient als Platzhalter.
     geschuetzt = _QU.sub(lambda m: m.group(1) + "\x00", wort)
+    geschuetzt = _VOKAL_UE.sub(lambda m: m.group(1) + "\x00", geschuetzt)
     for umschrieben, umlaut in _PAARE:
         geschuetzt = geschuetzt.replace(umschrieben, umlaut)
     fertig = geschuetzt.replace("\x00", "ue")

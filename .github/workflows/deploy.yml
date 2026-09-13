@@ -5,8 +5,11 @@ name: Deploy
 # der Server die Aenderungen selbst ab (Pull statt Push).
 #
 # Dieser Workflow prueft daher nur, dass ein Deployment sauber waere:
-# Image bauen, veroeffentlichen, Compose-Datei validieren. Das Ausrollen macht
-# der Timer auf dem LXC (systemd, mia-os-deploy.timer).
+# Image bauen, Compose-Datei validieren. Das Ausrollen macht der Timer auf
+# dem LXC (systemd, mia-os-deploy.timer).
+#
+# Das Abbild wird gebaut, aber NICHT veroeffentlicht: der LXC baut selbst und
+# holt nichts aus einer Registry. Begruendung steht beim Bau-Schritt.
 
 on:
   workflow_run:
@@ -17,7 +20,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: deploy-production
@@ -25,20 +27,13 @@ concurrency:
 
 jobs:
   publish:
-    name: Image veroeffentlichen
+    name: Abbild pruefen
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@v7
 
       - uses: docker/setup-buildx-action@v4
-
-      - name: An GitHub Container Registry anmelden
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Tags bestimmen
         id: meta
@@ -49,12 +44,29 @@ jobs:
             type=raw,value=latest
             type=sha,format=short
 
-      - name: Bauen und pushen
+      - name: Abbild bauen
         uses: docker/build-push-action@v7
         with:
           context: .
           file: backend/Dockerfile
-          push: true
+          # Bauen ja, veroeffentlichen nein.
+          #
+          # Der Push scheiterte seit dem Repo-Umzug bei JEDEM Lauf mit
+          # "denied: permission_denied: read_package": das Paket
+          # ghcr.io/mialamala/mia-os haengt noch am alten Repo, und das neue
+          # darf dort nicht hineinschreiben. Jeder Fehlschlag hat Mia eine
+          # Mail geschickt.
+          #
+          # Gebraucht wird das Abbild ohnehin nicht: der LXC baut selbst
+          # (docker-compose.yml dort sagt `image: mia-os:local`) und holt
+          # nichts aus der Registry. Der Bau bleibt trotzdem stehen, denn er
+          # beweist, dass das Dockerfile durchlaeuft, und genau das ist der
+          # Zweck dieses Workflows.
+          #
+          # Will Mia GHCR wieder haben, muss das Paket auf GitHub mit dem
+          # neuen Repo verknuepft werden. Das ist eine Aenderung an einem
+          # oeffentlichen Artefakt und gehoert ihr, nicht einer Nachtschicht.
+          push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
