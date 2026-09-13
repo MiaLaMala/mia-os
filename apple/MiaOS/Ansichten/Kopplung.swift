@@ -1,3 +1,6 @@
+// UNGEPRUEFT: geaendert am 14.09.2026 nachts, ohne Compiler.
+// Betrifft nur die Schriftgroessen: feste Punktzahl auf Dynamic Type.
+// Vor dem Verwenden: scripts/beide_pruefen.sh auf Mias Mac.
 // Der erste Bildschirm: dieses Gerät mit Mia OS verbinden.
 //
 // Sechs Ziffern, ein Knopf. Der Code steht in Mia OS unter Einstellungen und
@@ -21,7 +24,9 @@ struct Kopplung: View {
             Spacer()
 
             Image(systemName: "square.stack.3d.up")
-                .font(.system(size: 46, weight: .light))
+                // Waechst mit Dynamic Type mit. Eine feste Punktzahl bliebe
+                // stehen, waehrend der Text darunter groesser wird.
+                .font(.system(.largeTitle, weight: .light))
                 .foregroundStyle(.tint)
 
             VStack(spacing: 6) {
@@ -33,7 +38,11 @@ struct Kopplung: View {
             }
 
             TextField("000000", text: $code)
-                .font(.system(size: 34, weight: .medium, design: .monospaced))
+                // Der Code ist das Wichtigste auf diesem Bildschirm und muss
+                // beim Abtippen gut lesbar sein: `.title` waechst mit Dynamic
+                // Type, `size: 34` nicht. Monospaced, damit die sechs Ziffern
+                // beim Tippen nicht springen.
+                .font(.system(.title, design: .monospaced).weight(.medium))
                 .multilineTextAlignment(.center)
                 .textFieldStyle(.plain)
                 .focused($imFeld)

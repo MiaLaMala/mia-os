@@ -1,3 +1,6 @@
+// UNGEPRUEFT: geaendert am 14.09.2026 nachts, ohne Compiler.
+// Betrifft nur die Schriftgroessen: feste Punktzahl auf Dynamic Type.
+// Vor dem Verwenden: scripts/beide_pruefen.sh auf Mias Mac.
 // Belege scannen mit der Systemkamera.
 //
 // **Das Dritte, was eine Website nicht kann.** `VNDocumentCameraViewController`
@@ -85,7 +88,9 @@ struct Scannen: View {
             Spacer()
 
             Image(systemName: "doc.viewfinder")
-                .font(.system(size: 46, weight: .light))
+                // Waechst mit Dynamic Type mit. Eine feste Punktzahl bliebe
+                // stehen, waehrend der Text darunter groesser wird.
+                .font(.system(.largeTitle, weight: .light))
                 .foregroundStyle(.tint)
 
             VStack(spacing: 6) {

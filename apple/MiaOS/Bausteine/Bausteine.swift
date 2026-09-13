@@ -1,3 +1,6 @@
+// UNGEPRUEFT: geaendert am 14.09.2026 nachts, ohne Compiler.
+// Betrifft nur die Schriftgroessen: feste Punktzahl auf Dynamic Type.
+// Vor dem Verwenden: scripts/beide_pruefen.sh auf Mias Mac.
 // Kleine Teile, die in mehreren Ansichten vorkommen.
 
 import SwiftUI
@@ -15,7 +18,11 @@ struct Leer: View {
     var body: some View {
         VStack(spacing: Mass.abstand) {
             Image(systemName: symbol)
-                .font(.system(size: 34, weight: .light))
+                // `.system(.title, …)` statt `.system(size: 34, …)`: eine feste
+                // Punktzahl waechst nicht mit, wenn Mia die Schrift groesser
+                // stellt. Dann steht ein winziges Symbol ueber grossem Text.
+                // Impeccable verbietet feste Groessen ausdruecklich.
+                .font(.system(.title, weight: .light))
                 .foregroundStyle(.tertiary)
             Text(text)
                 .font(.callout)
