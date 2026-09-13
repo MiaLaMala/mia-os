@@ -32,6 +32,19 @@ sagt. Die anderen beiden verlangen dieselbe Kopplung wie die Schnittstelle:
 sie verraten, welche Quellen klemmen und wie groß die Datenbank ist, und das
 ist eine Landkarte für jemanden, der einen Weg herein sucht.
 
+**Vom LXC aus abfragen geht nicht.** Ein `curl` vom Host nach
+`localhost:8080` läuft über die Docker-Bridge und kommt beim Dienst mit der
+Absenderadresse 172.17.0.1 an. Die liegt außerhalb von 172.16.0.0/16, also
+antwortet die Torwache mit 401. Von innen geht es:
+
+```
+pct exec 141 -- docker exec mia-os python -c "
+import urllib.request
+print(urllib.request.urlopen('http://localhost:8080/health/bereit').read().decode())"
+```
+
+Aus Mias Browser im Heimnetz geht es direkt, dort stimmt die Adresse.
+
 ## Die App startet nicht
 
 **Erkennen:** `docker ps` zeigt den Container als `Restarting` oder gar

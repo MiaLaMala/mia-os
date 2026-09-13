@@ -24,9 +24,7 @@ set -euo pipefail
 
 REPO_DIR=/opt/mia-os/src-repo
 COMPOSE_DIR=/opt/mia-os
-BASIS_URL=http://localhost:8080
-HEALTH_URL="$BASIS_URL/health"
-BEREIT_URL="$BASIS_URL/health/bereit"
+HEALTH_URL=http://localhost:8080/health
 
 # Werte, die nicht ins oeffentliche Repo gehoeren (etwa PVE_HOST fuer den
 # Kuma-Zugriff). Die Datei liegt nur auf dem Server. Fehlt sie, laeuft der
@@ -95,23 +93,39 @@ lebt() {
 
 bereit() {
     # Readiness: Datenbank erreichbar und beschreibbar, Sammelschleife laeuft.
-    # Kuerzeres Fenster, weil der Prozess zu diesem Zeitpunkt schon antwortet.
     #
-    # Faellt der Endpunkt weg (aeltere Fassung ohne Betriebsauskunft), zaehlt
-    # die Liveness allein. Sonst wuerde ein Rueckrollen auf einen alten Stand
-    # daran scheitern, dass dieser den neuen Endpunkt nicht kennt.
+    # **Von INNEN geprueft, nicht ueber den Host.** Ein curl vom LXC nach
+    # localhost:8080 laeuft ueber die Docker-Bridge und kommt beim Dienst mit
+    # der Absenderadresse 172.17.0.1 an. Die liegt nicht im vertrauten Netz
+    # (172.16.0.0/16), also antwortet die Torwache mit 401. ``/health`` merkt
+    # das nicht, weil es offen ist; die Bereitschaft schon. Am 14.09.2026
+    # genau so gemessen: von innen 200, vom Host 401. Ein Gate, das darauf
+    # hereinfaellt, rollt bei jedem Deploy zurueck.
+    #
+    # Kein curl im Container, deshalb urllib. Das ist derselbe Weg, den auch
+    # der Healthcheck in docker-compose.yml geht.
     local code
-    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$BEREIT_URL" || echo 000)
-    if [ "$code" = "404" ]; then
-        echo "$(date -Is) Hinweis: /health/bereit fehlt in dieser Fassung, pruefe nur Liveness"
-        return 0
-    fi
     for _ in $(seq 1 15); do
-        if curl -fsS --max-time 5 "$BEREIT_URL" > /dev/null 2>&1; then
-            return 0
-        fi
+        code=$(docker exec mia-os python -c "
+import urllib.request, sys
+try:
+    sys.stdout.write(str(urllib.request.urlopen('http://localhost:8080/health/bereit', timeout=5).status))
+except Exception as fehler:
+    sys.stdout.write(str(getattr(fehler, 'code', 0)))
+" 2>/dev/null || echo 0)
+        case "$code" in
+            200) return 0 ;;
+            # Faellt der Endpunkt weg (aeltere Fassung ohne Betriebsauskunft),
+            # zaehlt die Liveness allein. Sonst wuerde ein Rueckrollen auf
+            # einen alten Stand daran scheitern, dass dieser ihn nicht kennt.
+            404)
+                echo "$(date -Is) Hinweis: /health/bereit fehlt in dieser Fassung, pruefe nur Liveness"
+                return 0
+                ;;
+        esac
         sleep 2
     done
+    echo "$(date -Is) Bereitschaft bleibt rot (zuletzt HTTP $code)" >&2
     return 1
 }
 
