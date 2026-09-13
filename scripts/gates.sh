@@ -5,7 +5,11 @@
 # Exit-Code verschluckt. Der Fehler stand lokal die ganze Zeit da, aufgefallen
 # ist er erst, als die CI rot wurde. Hier wird jeder Exit-Code geprueft.
 
-cd /home/openclaw/projects/mia-os || exit 1
+# Immer im Repo arbeiten, in dem dieses Skript liegt, nicht in einem fest
+# eingetragenen Pfad. Nach dem Repo-Umzug am 13.09.2026 zeigte der alte
+# Pfad noch auf das Archiv: die Gates liefen gruen, geprueft wurde aber ein
+# anderer Baum als der, in dem gearbeitet wurde.
+cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 FEHLER=0
 
 lauf() {
