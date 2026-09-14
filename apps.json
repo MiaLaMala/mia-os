@@ -1,0 +1,15 @@
+{
+  "version": "0.1.18",
+  "commit": "e4bdcc59e79dcc0b147cb29be374eedae8266cb3",
+  "gebaut_am": "2026-09-14T11:16:04Z",
+  "mac": {
+    "datei": "MiaOS-Mac.zip",
+    "groesse": 1185358,
+    "sha256": "bd2f5f28669dfc0d0dfb35ea54e440928e04df1e12341afab4d9003db2ed30f3"
+  },
+  "ios": {
+    "datei": "MiaOS-iOS.ipa",
+    "groesse": 628162,
+    "sha256": "f66ac70651d7a59f7318fece36f0a71b8cba057fc9f86cd75080ea2f693e2bf6"
+  }
+}
