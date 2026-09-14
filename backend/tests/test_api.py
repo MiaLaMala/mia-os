@@ -205,6 +205,95 @@ def test_preview_without_nextcloud_config(client: TestClient) -> None:
     assert client.get(f"/vorschau/{doc_id}").status_code == 503
 
 
+def test_nur_ordner_zeigt_keine_dateinamen(client: TestClient) -> None:
+    """Die Festlegung aus ``docs/apple-zuschnitt.md``, hier als Test.
+
+    Ohne Suchbegriff darf ``nur_ordner=1`` keinen einzigen Dateinamen
+    liefern, nur Ordner und Anzahl. Das ist der Weg, den die Apple-Apps
+    ausschliesslich nehmen: in den Ordnern liegen Ausweise und medizinische
+    Unterlagen, auch von anderen Menschen, und ein Telefon liegt auf Tischen.
+
+    ``search_documents`` hielt sich ohne Suchbegriff schon daran,
+    ``list_documents`` nicht. Genau diese Luecke schliesst der Schalter.
+    """
+    import src.main as m
+
+    m.get_store().replace_documents(
+        "nextcloud",
+        [
+            {
+                "path": "/Dokumente/02 Medizinisch/Befund.pdf",
+                "name": "Befund.pdf",
+                "folder": "/Dokumente/02 Medizinisch",
+                "ext": ".pdf",
+                "size_bytes": 10,
+                "modified_at": "2026-09-05T00:00:00+00:00",
+                "file_id": "1",
+            }
+        ],
+    )
+
+    daten = client.get("/api/dokumente?nur_ordner=1").json()
+    assert daten["treffer"] == []
+    assert daten["gesamt"] == 1
+    # Die Ordner kommen weiterhin: sie sind der Einstieg und verraten nur
+    # Struktur ("02 Medizinisch, 1 Dokument"), keinen einzelnen Befund.
+    assert daten["ordner"]
+
+    # Der Name steht nirgends in der Antwort, auch nicht in einem Nebenfeld.
+    assert "Befund.pdf" not in client.get("/api/dokumente?nur_ordner=1").text
+
+
+def test_nur_ordner_sucht_trotzdem(client: TestClient) -> None:
+    """Mit Suchbegriff greift der Schalter nicht: wer sucht, will finden."""
+    import src.main as m
+
+    m.get_store().replace_documents(
+        "nextcloud",
+        [
+            {
+                "path": "/Dokumente/Meldebescheinigung.pdf",
+                "name": "Meldebescheinigung.pdf",
+                "folder": "/Dokumente",
+                "ext": ".pdf",
+                "size_bytes": 10,
+                "modified_at": "2026-09-05T00:00:00+00:00",
+                "file_id": "1",
+            }
+        ],
+    )
+
+    daten = client.get("/api/dokumente?nur_ordner=1&q=meldebesch").json()
+    assert [t["name"] for t in daten["treffer"]] == ["Meldebescheinigung.pdf"]
+
+
+def test_web_blaettert_weiterhin(client: TestClient) -> None:
+    """Ohne den Schalter bleibt die Weboberflaeche, wie sie war.
+
+    Der Browser laeuft auf Mias Rechner, das Telefon liegt auf Tischen. Der
+    Schalter ist deshalb ein Schalter und keine neue Vorgabe fuer alle.
+    """
+    import src.main as m
+
+    m.get_store().replace_documents(
+        "nextcloud",
+        [
+            {
+                "path": "/Dokumente/Brief.pdf",
+                "name": "Brief.pdf",
+                "folder": "/Dokumente",
+                "ext": ".pdf",
+                "size_bytes": 10,
+                "modified_at": "2026-09-05T00:00:00+00:00",
+                "file_id": "1",
+            }
+        ],
+    )
+
+    daten = client.get("/api/dokumente").json()
+    assert [t["name"] for t in daten["treffer"]] == ["Brief.pdf"]
+
+
 # --- Dogfood-Befunde ------------------------------------------------------
 
 

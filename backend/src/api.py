@@ -1208,12 +1208,26 @@ async def homelab() -> dict[str, Any]:
 
 
 @router.get("/dokumente")
-async def dokumente(q: str = "", ordner: str = "", seite: int = 1) -> dict[str, Any]:
+async def dokumente(
+    q: str = "", ordner: str = "", seite: int = 1, nur_ordner: bool = False
+) -> dict[str, Any]:
     """Dokumente mit Suche, Ordnerfilter und Seitenzahl.
 
     Die Suche geht ueber einen eigenen Weg im Store und liefert eine Liste
     ohne Seiten: bei einem Suchbegriff will man Treffer sehen, nicht
     blaettern.
+
+    ``nur_ordner`` schaltet die Auflistung ohne Suchbegriff ganz ab: dann
+    kommen Ordner und Anzahl zurueck, aber keine einzige Datei. Gedacht fuer
+    die Apple-Apps.
+
+    **Warum das ein Schalter ist und keine neue Vorgabe fuer alle:** der
+    Browser laeuft auf Mias Rechner, das Telefon liegt auf Tischen. Die
+    Web-Ansicht blaettert weiter durch den Bestand, die App tut es nicht.
+    Ohne den Schalter muesste die App die Namen erst empfangen und dann
+    wegwerfen, und damit laegen sie im Antwortspeicher des Geraets.
+    ``search_documents`` haelt sich ohne Suchbegriff schon an dieselbe
+    Regel, ``list_documents`` bisher nicht.
     """
     from src.main import _doc_view, get_store
 
@@ -1221,6 +1235,15 @@ async def dokumente(q: str = "", ordner: str = "", seite: int = 1) -> dict[str, 
     werte = mit_vorgaben(store.get_settings())
     seite = max(1, seite)
     pro_seite = als_zahl(werte, "dokumente_pro_seite")
+
+    if nur_ordner and not q:
+        return {
+            "treffer": [],
+            "gesamt": store.count_documents(ordner),
+            "seite": 1,
+            "seiten": 1,
+            "ordner": store.document_folders(),
+        }
 
     if q:
         treffer = store.search_documents(q, limit=120)
