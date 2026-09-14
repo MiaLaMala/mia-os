@@ -1,6 +1,3 @@
-// UNGEPRUEFT: geaendert am 14.09.2026 nachts, ohne Compiler.
-// Betrifft nur die Schriftgroessen: feste Punktzahl auf Dynamic Type.
-// Vor dem Verwenden: scripts/beide_pruefen.sh auf Mias Mac.
 // Der erste Bildschirm: dieses Gerät mit Mia OS verbinden.
 //
 // Sechs Ziffern, ein Knopf. Der Code steht in Mia OS unter Einstellungen und

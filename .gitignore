@@ -40,7 +40,15 @@ mcp/uv.lock
 # Die Quelle ist apple/project.yml, daraus entsteht das Projekt neu.
 apple/MiaOS.xcodeproj/
 apple/MiaOSMac/Info.plist
-apple/MiaOSiOS/
+# NUR die erzeugte Info.plist, nicht der ganze Ordner.
+#
+# Hier stand bis zum 14.09.2026 `apple/MiaOSiOS/`, und damit fehlte die
+# handgeschriebene MiaOS.entitlements im neuen Repo: sie wurde beim Umzug
+# nie mitkopiert. Der Build brach auf Mias Mac ab mit "The file
+# MiaOSiOS/MiaOS.entitlements could not be opened". Aufgefallen erst beim
+# ersten echten Bau aufs Gerät, weil `swiftc -typecheck` keine
+# Projektdateien anfasst.
+apple/MiaOSiOS/Info.plist
 apple/.build/
 apple/build*/
 apple/Payload/

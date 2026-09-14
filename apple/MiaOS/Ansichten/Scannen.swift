@@ -1,6 +1,3 @@
-// UNGEPRUEFT: geaendert am 14.09.2026 nachts, ohne Compiler.
-// Betrifft nur die Schriftgroessen: feste Punktzahl auf Dynamic Type.
-// Vor dem Verwenden: scripts/beide_pruefen.sh auf Mias Mac.
 // Belege scannen mit der Systemkamera.
 //
 // **Das Dritte, was eine Website nicht kann.** `VNDocumentCameraViewController`

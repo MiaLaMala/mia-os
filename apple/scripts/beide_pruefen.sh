@@ -18,7 +18,7 @@ export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer
 # `swiftc -typecheck` das Paketmanifest nicht liest: ohne ausdrückliches
 # Ziel nimmt es die SDK-Version, und die ist immer die neueste. Genau dadurch
 # fiel die iOS-18-API nicht auf.
-IOS_MIN=17.0
+IOS_MIN=26.0
 MAC_MIN=14.0
 
 FEHLER=0

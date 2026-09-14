@@ -11,9 +11,19 @@ import PackageDescription
 
 let package = Package(
     name: "MiaOSKern",
-    // macOS 14 und iOS 17: darunter gibt es `@Observable` nicht, und ohne das
-    // müsste jeder Zustand über `ObservableObject` und `@Published` laufen.
-    platforms: [.macOS(.v14), .iOS(.v17)],
+    // macOS 14 wegen `@Observable`: darunter müsste jeder Zustand über
+    // `ObservableObject` und `@Published` laufen.
+    //
+    // iOS 26.0, weil Mias iPhone 13 auf iOS 27 läuft und die App nur dort
+    // landen muss. Ein niedrigeres Ziel kostet echte Dinge: `Tab` gibt es
+    // erst ab 18, mehrere SwiftUI-Bausteine erst ab 26, und jeder davon
+    // bräuchte sonst ein `if #available` samt Rückfallweg, den niemand je
+    // zu sehen bekommt.
+    //
+    // **Als Zeichenkette statt `.v26`:** die Kurzform kennt das SwiftPM in
+    // Xcode 26.6 noch nicht, `'v26' is unavailable`. Am 14.09.2026 genau so
+    // gemessen, die Langform übersetzt.
+    platforms: [.macOS(.v14), .iOS("26.0")],
     products: [
         .library(name: "MiaOSKern", targets: ["MiaOSKern"])
     ],
