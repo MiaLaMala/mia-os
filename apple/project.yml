@@ -25,7 +25,16 @@ settings:
     # `Zentrale` @MainActor ist und `Draht` ein actor: hier fällt auf, wenn
     # ein Wert zwischen beiden wandert, ohne dafür gemacht zu sein.
     SWIFT_STRICT_CONCURRENCY: complete
-    DEVELOPMENT_TEAM: ""
+    # Mias Team. Steht hier, damit ein frisch geklontes Repo ohne Handgriff
+    # in Xcode baut: sonst scheitert jeder Bau mit "requires a development
+    # team", und die ID muss man erst aus dem Zertifikat suchen (sie steht im
+    # OU-Feld, NICHT in der Klammer hinter der Mailadresse, das ist die
+    # persoenliche Kennung).
+    #
+    # Kein Geheimnis: die Team-ID steht in jeder signierten App und laesst
+    # sich aus jeder .ipa lesen. Ohne Mias Zertifikat und Apple-ID ist sie
+    # wertlos.
+    DEVELOPMENT_TEAM: "ZQX5MCD5M3"
     # Ohne bezahltes Programm signiert Xcode mit dem Entwicklerzertifikat,
     # das ohnehin auf dem Rechner liegt. Für Mac reicht das dauerhaft, für
     # iPhone gilt das Ergebnis sieben Tage.
