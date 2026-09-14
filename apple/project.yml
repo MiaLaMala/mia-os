@@ -98,6 +98,19 @@ targets:
         # Ohne diesen Text beendet iOS die App in dem Moment, in dem sie die
         # Kamera anfordert. Kein Dialog, kein Fehler: sofortiger Absturz.
         NSCameraUsageDescription: Zum Scannen von Belegen und Briefen.
+        # Bonjour: Mia OS im Heimnetz selbst finden.
+        #
+        # Beide Eintraege sind Pflicht und wirken unterschiedlich. Ohne den
+        # Text fragt iOS gar nicht erst nach der Erlaubnis und der Browser
+        # findet STILL nichts, ohne Fehlermeldung. Ohne die Dienstliste
+        # verweigert das System die Suche nach genau diesem Typ.
+        #
+        # Der Typ muss zu DIENST in backend/src/bonjour.py passen.
+        NSLocalNetworkUsageDescription: >-
+          Um Mia OS im Heimnetz zu finden, damit die Adresse nicht von Hand
+          eingetippt werden muss.
+        NSBonjourServices:
+          - _miaos._tcp
         # Koppeln per Link: miaos://koppeln?code=123456
         CFBundleURLTypes:
           - CFBundleURLName: dev.mia-gruenwald.mia-os

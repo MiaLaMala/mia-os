@@ -54,6 +54,15 @@ final class Zentrale {
         lage = await draht.istGekoppelt ? .bereit : .nichtGekoppelt
     }
 
+    /// Die Serveradresse wechseln.
+    ///
+    /// Nötig, weil der `Draht` ein actor ist und seine Adresse nicht von
+    /// außen gesetzt werden kann. Die Kopplungsansicht braucht das: dort
+    /// wird die Adresse gewählt, bevor der erste Aufruf rausgeht.
+    func adresseSetzen(_ neu: URL) async {
+        await draht.adresseSetzen(neu)
+    }
+
     /// Koppeln. Wirft weiter, damit die Ansicht den Grund anzeigen kann.
     func koppeln(code: String) async throws {
         try await draht.koppeln(

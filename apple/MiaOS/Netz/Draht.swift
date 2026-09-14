@@ -156,6 +156,59 @@ actor Draht {
         adresse = neu
     }
 
+    /// Ob unter einer Adresse wirklich Mia OS antwortet.
+    ///
+    /// Fragt ``/health`` ab, den einzigen offenen Endpunkt. Zurück kommt die
+    /// Version, damit die Oberfläche „Mia OS 0.3.10 erreichbar" sagen kann
+    /// statt „irgendwas hat geantwortet".
+    ///
+    /// **Warum das vor dem Koppeln gebraucht wird:** ein Kopplungscode gilt
+    /// genau einmal und zehn Minuten. Ihn gegen eine falsche Adresse zu
+    /// verbrauchen heißt, in Mia OS einen neuen erzeugen zu müssen, und das
+    /// geht nur an einem Gerät, das schon drin ist.
+    ///
+    /// Eigene kurze Session mit drei Sekunden: hier wird geprüft, nicht
+    /// gewartet. Antwortet eine Adresse nicht sofort, ist sie die falsche.
+    static func pruefen(_ adresse: URL) async -> Result<String, NetzFehler> {
+        struct Antwort: Decodable {
+            let status: String
+            let dienst: String?
+            let version: String?
+        }
+
+        guard let ziel = URL(string: "/health", relativeTo: adresse) else {
+            return .failure(.nichtErreichbar("Adresse nicht lesbar."))
+        }
+
+        let k = URLSessionConfiguration.ephemeral
+        k.timeoutIntervalForRequest = 3
+        k.requestCachePolicy = .reloadIgnoringLocalCacheData
+        let sitzung = URLSession(configuration: k)
+
+        do {
+            let (daten, antwort) = try await sitzung.data(from: ziel)
+            guard let http = antwort as? HTTPURLResponse else {
+                return .failure(.nichtErreichbar("Keine HTTP-Antwort."))
+            }
+            guard http.statusCode == 200 else {
+                return .failure(.serverFehler(status: http.statusCode, text: ""))
+            }
+            guard let gelesen = try? JSONDecoder().decode(Antwort.self, from: daten),
+                  gelesen.status == "ok"
+            else {
+                // Antwortet, ist aber nicht Mia OS. Kommt öfter vor, als man
+                // denkt: unter der getippten Adresse liegt der Router, ein
+                // anderer Dienst oder die Fehlerseite des Proxys.
+                return .failure(.nichtErreichbar("Dort antwortet etwas anderes als Mia OS."))
+            }
+            return .success(gelesen.version ?? "")
+        } catch let fehler as URLError where fehler.code == .timedOut {
+            return .failure(.nichtErreichbar("Keine Antwort."))
+        } catch {
+            return .failure(.nichtErreichbar(error.localizedDescription))
+        }
+    }
+
     var istGekoppelt: Bool { bund.lesen() != nil }
 
     func abmelden() {

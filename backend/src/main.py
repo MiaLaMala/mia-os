@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
-from src import betrieb, editor, ueber
+from src import betrieb, bonjour, editor, ueber
 from src.api import router as api_router
 from src.categories import BY_KEY, CATEGORIES, LIVE
 from src.collectors import all_collectors
@@ -100,6 +100,9 @@ async def _collect_loop() -> None:
 # dieselben Zahlen. Von aussen sieht das aus wie Betrieb.
 _sammel_task: asyncio.Task[None] | None = None
 
+# Die Bonjour-Ankuendigung, damit die Apps den Server im Netz selbst finden.
+_melder: bonjour.Melder | None = None
+
 
 def sammelschleife_laeuft() -> bool:
     """Ob die Hintergrundschleife noch arbeitet."""
@@ -108,10 +111,31 @@ def sammelschleife_laeuft() -> bool:
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    global _sammel_task
+    global _sammel_task, _melder
     _sammel_task = asyncio.create_task(_collect_loop())
     task = _sammel_task
+
+    # Bonjour: scheitert es, laeuft Mia OS unveraendert weiter, nur muss die
+    # Adresse in den Apps dann von Hand stehen. Eine Bequemlichkeit darf den
+    # Start nicht verhindern.
+    _melder = bonjour.Melder(
+        bonjour.Ankuendigung(
+            instanz="Mia OS",
+            port=settings.port,
+            version=ueber.version(),
+            adresse=bonjour.eigene_adresse(),
+        )
+    )
+    melder = _melder
+    with contextlib.suppress(Exception):
+        await melder.starten()
+
     yield
+
+    if _melder is not None:
+        with contextlib.suppress(Exception):
+            await _melder.stoppen()
+        _melder = None
     task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await task
@@ -469,8 +493,19 @@ async def health() -> dict[str, str]:
     aussen, und eine Antwort, die von der Datenbank abhaengt, wuerde den
     Container bei einer langsamen Abfrage neu starten. Die eigentliche
     Auskunft steht unter ``/health/bereit``.
+
+    **Die Apps benutzen diesen Endpunkt zum Pruefen der Adresse.** Deshalb
+    steht hier auch der Name und die Version: so kann die App sagen
+    "Mia OS 0.3.10 erreichbar" statt nur "irgendwas hat geantwortet". Eine
+    beliebige andere Webseite antwortet nicht mit diesem JSON.
     """
-    return {"status": "ok", "time": datetime.now(UTC).isoformat()}
+    return {
+        "status": "ok",
+        "dienst": "mia-os",
+        "name": OWNER,
+        "version": ueber.version(),
+        "time": datetime.now(UTC).isoformat(),
+    }
 
 
 @app.get("/health/bereit")

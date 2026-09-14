@@ -3,8 +3,20 @@ services:
     image: ghcr.io/mialamala/mia-os:latest
     container_name: mia-os
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    # Host-Netz statt Bridge, wegen Bonjour.
+    #
+    # Die Ankuendigung im Heimnetz laeuft ueber Multicast an 224.0.0.251.
+    # Ein Container im Bridge-Netz sieht diese Pakete nicht: Docker leitet
+    # nur weiter, was per `ports:` an einen TCP-Port geht, und Multicast
+    # gehoert nicht dazu. Der Dienst wuerde starten, lauschen und nie etwas
+    # hoeren, ohne einen einzigen Fehler zu melden. Genau die Art Fehler,
+    # die man erst beim dritten Suchen am iPhone findet.
+    #
+    # Mit `network_mode: host` faellt `ports:` weg: der Dienst lauscht direkt
+    # auf Port 8080 des LXC, so wie vorher ueber die Weiterleitung. Von
+    # aussen aendert sich dadurch nichts, der Reverse Proxy trifft dieselbe
+    # Adresse.
+    network_mode: host
     volumes:
       - mia-os-data:/var/lib/mia-os
       # Die drei Schluessel, die der Dienst braucht. Jeder nur lesend, jeder
