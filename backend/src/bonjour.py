@@ -39,6 +39,7 @@ import logging
 import socket
 import struct
 from dataclasses import dataclass
+from typing import Any, cast
 
 log = logging.getLogger(__name__)
 
@@ -219,13 +220,51 @@ def eigene_adresse() -> str:
         s.close()
 
 
+class _Empfang(asyncio.DatagramProtocol):
+    """Nimmt die Pakete entgegen und laesst den Melder antworten.
+
+    **Warum ein Protokoll und keine Schleife mit ``sock_recvfrom``:** unter
+    ``uvicorn[standard]`` laeuft uvloop, und uvloop kennt ``sock_recvfrom``
+    schlicht nicht. Der Aufruf wirft ``NotImplementedError``, der Task stirbt
+    im ersten Durchlauf, und zwar lautlos: der Socket bleibt offen, der
+    Empfangspuffer fuellt sich, ``ss`` zeigt einen lauschenden Dienst. Von
+    aussen sieht alles richtig aus, nur antwortet nie jemand.
+
+    Genau so ist es am 14.09.2026 auf dem LXC passiert, nachdem es lokal
+    ohne uvicorn funktioniert hatte. ``create_datagram_endpoint`` ist der
+    Weg, den beide Schleifen koennen.
+    """
+
+    def __init__(self, melder: Melder) -> None:
+        self.melder = melder
+        self.transport: asyncio.DatagramTransport | None = None
+
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
+        # KEIN isinstance-Test auf asyncio.DatagramTransport: uvloop liefert
+        # seinen eigenen Typ, der davon nicht erbt. Ein assert hier bricht
+        # die Verbindung sofort wieder ab, und zwar genau im Betrieb unter
+        # uvicorn, waehrend es lokal mit der Standard-Schleife durchlaeuft.
+        # Gebraucht wird ohnehin nur ``sendto``.
+        self.transport = cast("asyncio.DatagramTransport", transport)
+
+    def datagram_received(self, data: bytes, addr: tuple[str | Any, int]) -> None:
+        if self.transport is None:
+            return
+        self.melder.beantworten(data, addr, self.transport)
+
+    def error_received(self, exc: Exception) -> None:
+        # Ein ICMP-Fehler auf einen frueheren Versand. Nichts zu tun: das
+        # naechste Paket kommt trotzdem an.
+        log.debug("mDNS: %s", exc)
+
+
 class Melder:
     """Beantwortet mDNS-Anfragen nach Mia OS, solange er laeuft."""
 
     def __init__(self, an: Ankuendigung) -> None:
         self.an = an
         self._sock: socket.socket | None = None
-        self._task: asyncio.Task[None] | None = None
+        self._transport: asyncio.DatagramTransport | None = None
 
     def _oeffnen(self) -> socket.socket:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -241,45 +280,38 @@ class Melder:
         s.setblocking(False)
         return s
 
-    async def _schleife(self) -> None:
-        schleife = asyncio.get_running_loop()
-        assert self._sock is not None
-        while True:
-            try:
-                daten, absender = await schleife.sock_recvfrom(self._sock, 4096)
-            except (asyncio.CancelledError, GeneratorExit):
-                raise
-            except OSError as fehler:
-                log.debug("mDNS-Empfang gestoert: %s", fehler)
-                await asyncio.sleep(1)
-                continue
+    def beantworten(
+        self,
+        daten: bytes,
+        absender: tuple[str | Any, int],
+        transport: asyncio.DatagramTransport,
+    ) -> None:
+        """Auf eine einzelne Anfrage antworten, falls sie uns gilt."""
+        # Zwei Arten von Anfrage zaehlen: die Suche nach dem Diensttyp
+        # (so sucht ein iPhone) und die gezielte Nachfrage nach unserer
+        # Instanz (so fragt eines nach, das uns schon kennt).
+        gesucht = any(
+            (name == DIENST and typ in (TYP_PTR, TYP_ALLE))
+            or (name == self.an.voller_name.lower() and typ in (TYP_SRV, TYP_TXT, TYP_ALLE))
+            for name, typ in _fragen_lesen(daten)
+        )
+        if not gesucht:
+            return
 
-            # Zwei Arten von Anfrage zaehlen: die Suche nach dem Diensttyp
-            # (so sucht ein iPhone) und die gezielte Nachfrage nach unserer
-            # Instanz (so fragt eines nach, das uns schon kennt).
-            gesucht = any(
-                (name == DIENST and typ in (TYP_PTR, TYP_ALLE))
-                or (name == self.an.voller_name.lower() and typ in (TYP_SRV, TYP_TXT, TYP_ALLE))
-                for name, typ in _fragen_lesen(daten)
-            )
-            if not gesucht:
-                continue
-
-            # Die Adresse bei jeder Antwort neu bestimmen: im Heimnetz
-            # vergibt der DHCP neu, und eine beim Start gemerkte IP waere
-            # nach einem Wechsel eine falsche Auskunft.
-            aktuell = Ankuendigung(
-                instanz=self.an.instanz,
-                port=self.an.port,
-                version=self.an.version,
-                adresse=eigene_adresse(),
-            )
-            paket = antwort_bauen(aktuell)
-            with contextlib.suppress(OSError):
-                # An den Fragenden direkt, nicht an die Gruppe: die Antwort
-                # interessiert nur ihn, und ein Multicast weniger ist in
-                # einem WLAN mit Handys spuerbar.
-                await schleife.sock_sendto(self._sock, paket, absender)
+        # Die Adresse bei jeder Antwort neu bestimmen: im Heimnetz
+        # vergibt der DHCP neu, und eine beim Start gemerkte IP waere
+        # nach einem Wechsel eine falsche Auskunft.
+        aktuell = Ankuendigung(
+            instanz=self.an.instanz,
+            port=self.an.port,
+            version=self.an.version,
+            adresse=eigene_adresse(),
+        )
+        with contextlib.suppress(OSError):
+            # An den Fragenden direkt, nicht an die Gruppe: die Antwort
+            # interessiert nur ihn, und ein Multicast weniger ist in
+            # einem WLAN mit Handys spuerbar.
+            transport.sendto(antwort_bauen(aktuell), absender)
 
     async def starten(self) -> bool:
         """Anfangen zu antworten. ``False``, wenn das Netz es nicht zulaesst.
@@ -294,17 +326,33 @@ class Melder:
         except OSError as fehler:
             log.info("Bonjour nicht moeglich (%s). Adresse muss von Hand gesetzt werden.", fehler)
             return False
-        self._task = asyncio.create_task(self._schleife())
-        log.info("Bonjour: %s auf Port %d", self.an.voller_name, self.an.port)
-        return True
 
-    async def stoppen(self) -> None:
-        if self._task is not None:
-            self._task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._task
-            self._task = None
-        if self._sock is not None:
+        schleife = asyncio.get_running_loop()
+        try:
+            transport, _ = await schleife.create_datagram_endpoint(
+                lambda: _Empfang(self), sock=self._sock
+            )
+        except (OSError, NotImplementedError) as fehler:
+            log.info("Bonjour nicht moeglich (%s).", fehler)
             with contextlib.suppress(OSError):
                 self._sock.close()
             self._sock = None
+            return False
+
+        self._transport = transport
+        # Auf WARNING, damit die Zeile auch im Container sichtbar ist: die
+        # Vorgabe von uvicorn zeigt INFO aus fremden Modulen nicht an, und
+        # eine Startmeldung, die niemand sieht, beweist nichts.
+        log.warning("Bonjour: %s auf Port %d", self.an.voller_name, self.an.port)
+        return True
+
+    async def stoppen(self) -> None:
+        if self._transport is not None:
+            with contextlib.suppress(Exception):
+                self._transport.close()
+            self._transport = None
+        # Den Socket NICHT selbst schliessen: das Transport hat ihn
+        # uebernommen und tut es beim Schliessen. Ein zweiter close() auf
+        # denselben Dateideskriptor trifft sonst einen, den inzwischen ein
+        # anderer Teil des Programms bekommen hat.
+        self._sock = None

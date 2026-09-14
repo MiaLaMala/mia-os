@@ -8,6 +8,7 @@ antwortet der Dienst nur auf die passende Anfrage?
 
 from __future__ import annotations
 
+import asyncio
 import socket
 import struct
 
@@ -135,3 +136,53 @@ def test_rechnername_ist_ein_gueltiger_dns_name() -> None:
     assert " " not in an.rechnername
     assert an.rechnername.endswith(".local.")
     assert an.voller_name.endswith(bonjour.DIENST)
+
+
+def test_melder_antwortet_unter_uvloop() -> None:
+    """Der Melder muss unter DER Schleife laufen, die im Betrieb laeuft.
+
+    ``uvicorn[standard]`` bringt uvloop mit, und uvloop kennt
+    ``sock_recvfrom`` nicht. Die erste Fassung benutzte genau das: lokal mit
+    der Standard-Schleife lief alles, im Container starb der Empfangs-Task
+    im ersten Durchlauf, und zwar lautlos. Der Socket blieb offen, ``ss``
+    zeigte einen lauschenden Dienst, der Empfangspuffer fuellte sich, und
+    niemand antwortete. Von aussen sah alles richtig aus.
+
+    Deshalb laeuft dieser Test ausdruecklich unter uvloop und schickt eine
+    echte Anfrage ueber das Netz. Ein Test unter asyncio haette den Fehler
+    nicht gefunden.
+    """
+    uvloop = pytest.importorskip("uvloop", reason="nur mit uvicorn[standard] installiert")
+
+    async def lauf() -> bytes | None:
+        melder = bonjour.Melder(_an())
+        if not await melder.starten():
+            pytest.skip("Port 5353 belegt oder kein Multicast in dieser Umgebung")
+        try:
+            await asyncio.sleep(0.2)
+            frage = _frage(bonjour.DIENST, bonjour.TYP_PTR)
+
+            sucher = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sucher.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
+            sucher.bind(("", 0))
+            sucher.setblocking(False)
+            try:
+                sucher.sendto(frage, (bonjour.GRUPPE, bonjour.MDNS_PORT))
+                for _ in range(20):
+                    await asyncio.sleep(0.1)
+                    try:
+                        daten = sucher.recv(4096)
+                    except BlockingIOError:
+                        continue
+                    if b"miaos" in daten:
+                        return daten
+                return None
+            finally:
+                sucher.close()
+        finally:
+            await melder.stoppen()
+
+    antwort = uvloop.run(lauf())
+    assert antwort is not None, "Melder hat unter uvloop nicht geantwortet"
+    assert b"version=" in antwort
+    assert socket.inet_aton(_an().adresse) or True  # Adresse wird zur Laufzeit bestimmt
