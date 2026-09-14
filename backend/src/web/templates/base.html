@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de"{% if thema() %} data-thema="{{ thema() }}"{% endif %}>
+<html lang="de">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -9,7 +9,11 @@
   <link rel="preload" href="/static/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
   <style>
     /* Schlanker Rahmen fuer die serverseitigen Restseiten (Editor, 404).
-       Dieselben Tokens wie in frontend/src/app.css. */
+       Dieselben Werte wie in frontend/src/farben.css, das aus farben.json
+       entsteht. Hier von Hand, weil diese Seiten ohne Bauschritt
+       ausgeliefert werden: aendert sich die Palette, muss diese Liste
+       nachgezogen werden. Der Kontrast-Gate in farben_bauen.py deckt sie
+       nicht ab. */
     @font-face {
       font-family: "MiaSans";
       src: url("/static/fonts/InterVariable.woff2") format("woff2");
@@ -17,17 +21,15 @@
       font-display: swap;
     }
     :root {
-      --grund: #0b0c0e; --flaeche: #141518; --erhoben: #1c1e22; --linie: #26282e;
-      --text: #f2f3f5; --gedaempft: #9096a0; --akzent: #0a84ff; --akzent-text: #fff;
+      --grund: #100b0a; --flaeche: #1c1414; --erhoben: #281d1d; --linie: #3d2f2f;
+      --text: #f6f0f0; --gedaempft: #a29594; --akzent: #f33e52; --akzent-text: #fff;
     }
     @media (prefers-color-scheme: light) {
       :root {
-        --grund: #f5f5f7; --flaeche: #fff; --erhoben: #f0f0f3; --linie: #e3e3e7;
-        --text: #16171a; --gedaempft: #6b6f78; --akzent: #0071e3;
+        --grund: #fdf9f9; --flaeche: #fff; --erhoben: #f7f0ef; --linie: #e6dbdb;
+        --text: #1b1414; --gedaempft: #695959; --akzent: #c70030;
       }
     }
-    :root[data-thema="rot"] { --akzent: #ff2d55; }
-    @media (prefers-color-scheme: light) { :root[data-thema="rot"] { --akzent: #c9184a; } }
 
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; }

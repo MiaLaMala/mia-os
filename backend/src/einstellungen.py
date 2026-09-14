@@ -106,15 +106,11 @@ EINSTELLUNGEN: tuple[Einstellung, ...] = (
         gruppe="Homelab",
         optionen=(("24", "24 Stunden"), ("30", "30 Tage")),
     ),
-    Einstellung(
-        key="thema",
-        titel="Farbe",
-        hilfe="Der Akzent für aktive Auswahl, Fokus und Markierungen. Gilt auf allen Geräten.",
-        art="auswahl",
-        vorgabe="standard",
-        gruppe="Darstellung",
-        optionen=(("standard", "Blau"), ("rot", "Rot")),
-    ),
+    # Die Einstellung "Farbe" (Blau/Rot) ist am 14.09.2026 entfallen. Mia OS
+    # hat seit der einheitlichen Palette aus farben.json genau einen Akzent,
+    # und ein Auswahlfeld, das nichts bewirkt, ist schlechter als keins.
+    # Gespeicherte Werte unter "thema" bleiben in der Datenbank liegen und
+    # werden nirgends mehr gelesen; sie loeschen waere mehr Risiko als Nutzen.
     # --- Jana Desktop: das Display auf dem Schreibtisch ---------------------
     # Kommt mit dem Briefing zum Geraet, das die Werte im NVS ablegt. Gilt
     # damit auch, wenn Mia OS gerade nicht erreichbar ist.

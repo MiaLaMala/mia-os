@@ -43,7 +43,6 @@ function erstelleEinstellungen() {
         zustand.posten = daten.posten;
         zustand.werte = daten.werte;
         zustand.geladen = true;
-        this.themaAnwenden();
       } catch {
         // Ohne Einstellungen läuft die Seite mit Vorgaben weiter.
         zustand.geladen = true;
@@ -54,7 +53,6 @@ function erstelleEinstellungen() {
     async setzen(key: string, wert: string) {
       const vorher = zustand.werte[key];
       zustand.werte = { ...zustand.werte, [key]: wert };
-      if (key === "thema") this.themaAnwenden();
 
       try {
         await api.einstellungSetzen(key, wert);
@@ -63,17 +61,7 @@ function erstelleEinstellungen() {
         // Server hat abgelehnt: zurückdrehen, sonst zeigt die Oberfläche
         // etwas an, was nicht gespeichert ist.
         zustand.werte = { ...zustand.werte, [key]: vorher };
-        if (key === "thema") this.themaAnwenden();
         return false;
-      }
-    },
-
-    themaAnwenden() {
-      const thema = zustand.werte.thema;
-      if (thema && thema !== "standard") {
-        document.documentElement.dataset.thema = thema;
-      } else {
-        delete document.documentElement.dataset.thema;
       }
     },
   };

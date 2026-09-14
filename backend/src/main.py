@@ -57,21 +57,6 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "web" / "templates"))
 templates.env.globals["icon"] = icon
 templates.env.globals["nav"] = CATEGORIES
 
-
-def _thema() -> str:
-    """Das eingestellte Farbthema fuer jede Seite.
-
-    Serverseitig statt nur im Browser-Speicher: sonst gilt die Einstellung
-    immer nur auf dem Geraet, an dem sie gesetzt wurde.
-    """
-    with contextlib.suppress(Exception):
-        wert = mit_vorgaben(get_store().get_settings())["thema"]
-        return "" if wert == "standard" else str(wert)
-    return ""
-
-
-templates.env.globals["thema"] = _thema
-
 OWNER = "Mia Grünwald"
 
 _store: Store | None = None

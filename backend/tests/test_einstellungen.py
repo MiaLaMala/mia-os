@@ -58,9 +58,9 @@ def test_vorgaben_fuellen_luecken() -> None:
 
 def test_kaputter_gespeicherter_wert_faellt_auf_die_vorgabe(store: Store) -> None:
     """Auch wenn jemand direkt in die Datenbank schreibt."""
-    werte = mit_vorgaben({"sammel_minuten": "-5", "thema": "lila"})
+    werte = mit_vorgaben({"sammel_minuten": "-5", "dienste_uptime_zeitraum": "lila"})
     assert werte["sammel_minuten"] == "15"
-    assert werte["thema"] == "standard"
+    assert werte["dienste_uptime_zeitraum"] == "24"
 
 
 def test_gruppen_behalten_die_reihenfolge() -> None:
@@ -254,13 +254,28 @@ def test_pending_ist_keine_stoerung(client: TestClient) -> None:
 
 def test_einzelne_einstellung_sichern(client: TestClient) -> None:
     """Kein Speichern-Knopf: jede Änderung geht sofort raus."""
-    antwort = client.post("/api/einstellungen", json={"key": "thema", "wert": "rot"})
+    antwort = client.post(
+        "/api/einstellungen", json={"key": "dienste_uptime_zeitraum", "wert": "30"}
+    )
     assert antwort.status_code == 200
-    assert antwort.json()["wert"] == "rot"
+    assert antwort.json()["wert"] == "30"
 
     import src.main as m
 
-    assert m.get_store().get_settings()["thema"] == "rot"
+    assert m.get_store().get_settings()["dienste_uptime_zeitraum"] == "30"
+
+
+def test_entfernte_einstellung_wird_abgewiesen(client: TestClient) -> None:
+    """Die Einstellung "thema" gab es bis zum 14.09.2026 (Akzent Blau oder Rot).
+
+    Seit die Palette aus farben.json kommt, hat Mia OS genau einen Akzent,
+    und das Auswahlfeld bewirkte nichts mehr. Der Schlüssel darf jetzt nicht
+    mehr durchgehen: eine alte App-Fassung, die ihn noch schickt, soll eine
+    klare Absage bekommen statt einen Wert in die Datenbank zu legen, den
+    niemand liest.
+    """
+    antwort = client.post("/api/einstellungen", json={"key": "thema", "wert": "rot"})
+    assert antwort.status_code == 400
 
 
 def test_unbekannter_schluessel_wird_abgewiesen(client: TestClient) -> None:
