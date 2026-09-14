@@ -65,7 +65,11 @@ enum Einstellungen {
     ///
     /// Gibt `nil` zurück, wenn daraus nichts wird. Lieber ein abgeblendeter
     /// Knopf als eine Anfrage an eine Adresse, die niemand gemeint hat.
-    static func adresseAus(_ eingabe: String) -> URL? {
+    ///
+    /// - Parameter port: überschreibt einen Port aus der Eingabe. Die
+    ///   Kopplungsansicht führt Adresse und Port als getrennte Felder, weil
+    ///   ein `:8080` mitten im Text schlecht zu treffen ist.
+    static func adresseAus(_ eingabe: String, port: Int? = nil) -> URL? {
         let roh = eingabe.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !roh.isEmpty else { return nil }
 
@@ -73,10 +77,10 @@ enum Einstellungen {
         if roh.hasPrefix("http://") || roh.hasPrefix("https://") {
             mitSchema = roh
         } else if istIPAdresse(ersterTeil(roh)) {
-            // Eine nackte IP: im Heimnetz, also Klartext und der bekannte
-            // Port. Mit https käme eine Zertifikatswarnung für eine Adresse,
-            // für die es kein Zertifikat geben kann.
-            mitSchema = roh.contains(":") ? "http://\(roh)" : "http://\(roh):8080"
+            // Eine nackte IP: im Heimnetz, also Klartext. Mit https käme eine
+            // Zertifikatswarnung für eine Adresse, für die es kein Zertifikat
+            // geben kann.
+            mitSchema = "http://\(roh)"
         } else {
             mitSchema = "https://\(roh)"
         }
@@ -90,11 +94,41 @@ enum Einstellungen {
         teile.path = ""
         teile.query = nil
         teile.fragment = nil
+
+        if let port {
+            // Den Standardport weglassen. `https://host:443` funktioniert,
+            // sieht aber in der Zeile unten nach einer Einstellung aus, die
+            // jemand von Hand gesetzt hat.
+            teile.port = (port == standardPort(fuer: teile.scheme)) ? nil : port
+        }
         return teile.url
     }
 
+    /// Der Port, der zu einer Eingabe passt, solange niemand etwas anderes tippt.
+    ///
+    /// 443 bei einem Namen, 8080 bei einer IP: im Heimnetz läuft Mia OS
+    /// direkt, von außen über den Reverse Proxy.
+    static func portVorschlag(fuer eingabe: String) -> Int {
+        let roh = eingabe.trimmingCharacters(in: .whitespacesAndNewlines)
+        if roh.hasPrefix("http://") { return 80 }
+        if roh.hasPrefix("https://") { return 443 }
+        return istIPAdresse(ersterTeil(roh)) ? 8080 : 443
+    }
+
+    /// Der Port, den eine fertige Adresse benutzt, auch wenn er nicht darin steht.
+    static func portVon(_ url: URL) -> Int {
+        url.port ?? standardPort(fuer: url.scheme)
+    }
+
+    private static func standardPort(fuer schema: String?) -> Int {
+        schema == "http" ? 80 : 443
+    }
+
     private static func ersterTeil(_ text: String) -> String {
-        text.split(separator: ":").first.map(String.init) ?? text
+        let ohneSchema = text
+            .replacingOccurrences(of: "http://", with: "")
+            .replacingOccurrences(of: "https://", with: "")
+        return ohneSchema.split(separator: ":").first.map(String.init) ?? ohneSchema
     }
 
     private static func istIPAdresse(_ text: String) -> Bool {

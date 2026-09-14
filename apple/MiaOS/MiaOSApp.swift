@@ -23,6 +23,7 @@ struct MiaOSApp: App {
         WindowGroup(id: "haupt") {
             Wurzel()
                 .environment(zentrale)
+                .tint(Farbe.akzent)
         }
         // Die Titelleiste verschmilzt mit dem Inhalt, wie in Mail und
         // Notizen.
@@ -41,6 +42,7 @@ struct MiaOSApp: App {
         Window("Schnell eintragen", id: "schnell") {
             Schnelleingabe()
                 .environment(zentrale)
+                .tint(Farbe.akzent)
         }
         .windowResizability(.contentSize)
         .defaultPosition(.center)
@@ -56,12 +58,27 @@ struct MiaOSApp: App {
         Settings {
             Geraet()
                 .environment(zentrale)
+                .tint(Farbe.akzent)
                 .frame(width: 420)
         }
         #else
         WindowGroup {
             Wurzel()
                 .environment(zentrale)
+                // Der Akzent an der Wurzel, damit er fuer ALLES gilt:
+                // Knoepfe, Schalter, der Textcursor, aktive Reiter, die
+                // Faerbung von SF Symbols mit `.tint`.
+                //
+                // Bis zum 14.09.2026 stand er nirgends. Farben.swift hatte
+                // das Rot, benutzt hat es niemand, und die App lief komplett
+                // in Systemblau. Am Screenshot aus dem Simulator gesehen:
+                // blaues Symbol, blauer Cursor. DESIGN.md sagt dazu
+                // ausdruecklich „Systemblau. Es gehoert Apple, nicht Mia OS."
+                //
+                // Ein `AccentColor` im Asset-Katalog waere der andere Weg,
+                // aber dann stuende die Farbe doppelt: einmal in farben.json
+                // und einmal als Farbsatz daneben. Eine Quelle ist die Regel.
+                .tint(Farbe.akzent)
         }
         #endif
     }

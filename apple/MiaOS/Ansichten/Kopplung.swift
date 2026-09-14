@@ -1,16 +1,24 @@
 // Der erste Bildschirm: dieses Gerät mit Mia OS verbinden.
 //
-// Zwei Schritte, und zwar in dieser Reihenfolge: **erst die Adresse, dann
-// der Code.** Bis zum 14.09.2026 gab es nur das Codefeld, die Adresse kam
-// ausschließlich über einen `miaos://`-Link. Ohne Link stand dort
-// `localhost`, der Code ging ans eigene Gerät und war verbraucht. Ein
-// Kopplungscode gilt genau einmal und zehn Minuten; ihn an eine falsche
-// Adresse zu verlieren ist ärgerlicher als ein Feld mehr.
+// **Der Code ist der Fokus, alles andere tritt zurück.** Bis zum 14.09.2026
+// stand hier nur das Codefeld und die Adresse kam ausschließlich über einen
+// `miaos://`-Link. Ohne Link stand dort `localhost`, der Code ging ans eigene
+// Gerät und war verbraucht. Mein erster Versuch, das zu beheben, legte dann
+// Suchliste, Adressfeld, Prüfen-Knopf und zwei Hilfetexte gleichzeitig auf
+// den Bildschirm. Mias Urteil: *„viel zu viel auf einmal da"*, und sie hat
+// recht. DESIGN.md sagt es selbst: „Ruhe zuerst, Tiefe auf Abruf" und „je
+// kleiner der Schirm, desto weniger steht drauf."
 //
-// Die Adresse lässt sich auf drei Wegen setzen: aus der Bonjour-Liste
-// antippen, von Hand tippen, oder über den `miaos://`-Link. Bonjour findet
-// nichts über den Tunnel, deshalb steht das Tippfeld gleichberechtigt
-// daneben und nicht in einem Untermenü.
+// Also drei Ebenen:
+//
+// 1. **Code und Verbinden.** Mehr braucht es im Normalfall nicht.
+// 2. **Gefundene Server** als Liste, wenn Bonjour welche findet. Ein Tippen
+//    setzt die Adresse, prüft sie und springt ins Codefeld.
+// 3. **Eine ruhige Zeile unten**, die zeigt, welcher Server gewählt ist.
+//    Ausklappbar, darin Adresse, Port und Prüfen.
+//
+// Das Ausklappen ist der Weg für unterwegs: über WireGuard reicht kein
+// Multicast, Bonjour findet dort nichts, und die Adresse muss getippt werden.
 
 import SwiftUI
 
@@ -18,61 +26,74 @@ struct Kopplung: View {
     @Environment(Zentrale.self) private var zentrale
     @State private var suche = Serversuche()
 
-    @State private var adresstext = ""
     @State private var code = ""
+    @State private var adresstext = ""
+    @State private var porttext = ""
+
+    @State private var offen = false
     @State private var laeuft = false
     @State private var pruefeAdresse = false
     @State private var fehler = ""
     /// Was die Prüfung ergeben hat. Leer heißt: noch nicht geprüft.
-    @State private var adresseBestaetigt = ""
+    @State private var bestaetigt = ""
+    /// Ob Mia den Port selbst gesetzt hat. Dann wird er beim Tippen in der
+    /// Adresse nicht mehr überschrieben.
+    @State private var portVonHand = false
+
     @FocusState private var imCodefeld: Bool
 
     private var codeGueltig: Bool {
         code.count == 6 && code.allSatisfy(\.isNumber)
     }
 
-    private var adresseGueltig: Bool {
-        Einstellungen.adresseAus(adresstext) != nil
+    private var port: Int? { Int(porttext) }
+
+    private var adresse: URL? {
+        Einstellungen.adresseAus(adresstext, port: port)
+    }
+
+    /// Was in der Zeile unten steht.
+    ///
+    /// Nach dem Prüfen der Name mit Version, sonst die Adresse, und ohne
+    /// alles ein ehrliches „Kein Server". Ein `localhost` an dieser Stelle
+    /// wäre die Lüge, die den ganzen Ärger ausgelöst hat.
+    private var serverzeile: String {
+        if !bestaetigt.isEmpty { return bestaetigt }
+        if let adresse { return adresse.host() ?? adresstext }
+        return "Kein Server"
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: Mass.abstandGross) {
-                kopf
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: Mass.abstandGross) {
+                    Spacer(minLength: Mass.abstandGross)
+                    kopf
+                    codefeld
+                    verbindenKnopf
 
-                gefundene
+                    if !fehler.isEmpty {
+                        Text(fehler)
+                            .font(.callout)
+                            .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
+                    }
 
-                adressfeld
-
-                codefeld
-
-                if !fehler.isEmpty {
-                    Text(fehler)
-                        .font(.callout)
-                        .foregroundStyle(.red)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, Mass.abstandGross)
+                    gefundene
+                    Spacer(minLength: Mass.abstand)
                 }
+                .padding(.horizontal, Mass.abstandGross)
+                .frame(maxWidth: 420)
+                .frame(maxWidth: .infinity)
+            }
 
-                verbindenKnopf
-            }
-            .padding(Mass.abstandGross)
-            .frame(maxWidth: 420)
-            .frame(maxWidth: .infinity)
+            serverleiste
         }
-        .onAppear {
-            // Die zuletzt benutzte Adresse vorbelegen, aber nur wenn eine
-            // gesetzt wurde: sonst stünde hier „localhost" und lüde dazu ein,
-            // genau den Fehler zu wiederholen, gegen den dieses Feld existiert.
-            if Einstellungen.adresseGesetzt {
-                adresstext = Einstellungen.adresse.absoluteString
-            }
-            suche.starten()
-        }
+        .onAppear(perform: starten)
         .onDisappear { suche.stoppen() }
     }
 
-    // MARK: Teile
+    // MARK: Oben
 
     private var kopf: some View {
         VStack(spacing: 6) {
@@ -84,160 +105,43 @@ struct Kopplung: View {
                 .padding(.bottom, 6)
             Text("Mia OS")
                 .font(.largeTitle.weight(.semibold))
-            Text("Erst den Server wählen, dann den Code eingeben.")
+            Text("Code aus Mia OS, Einstellungen")
                 .font(.callout)
                 .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.top, Mass.abstandGross)
-    }
-
-    @ViewBuilder
-    private var gefundene: some View {
-        if suche.laeuft || !suche.gefunden.isEmpty {
-            VStack(alignment: .leading, spacing: Mass.abstand) {
-                HStack {
-                    Text("Im Netz gefunden")
-                        .font(.footnote.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    if suche.laeuft {
-                        ProgressView().controlSize(.small)
-                    }
-                }
-
-                ForEach(suche.gefunden) { server in
-                    Button {
-                        adresstext = server.adresse.absoluteString
-                        adresseBestaetigt = ""
-                        fehler = ""
-                        Task { await adressePruefen() }
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(server.name)
-                                Text(server.beschreibung)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(Mass.abstand)
-                    .background(
-                        RoundedRectangle(cornerRadius: Mass.ecke)
-                            .fill(.quaternary.opacity(0.4))
-                    )
-                }
-            }
-        } else if suche.fertigOhneTreffer {
-            // Kein Drama daraus machen: über den Tunnel findet Bonjour nie
-            // etwas, und das ist der Normalfall, wenn Mia unterwegs ist.
-            HStack(spacing: 6) {
-                Text("Nichts im Netz gefunden.")
-                Button("Nochmal suchen") { suche.starten() }
-            }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-        }
-    }
-
-    private var adressfeld: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Adresse")
-                .font(.footnote.weight(.medium))
-                .foregroundStyle(.secondary)
-
-            HStack {
-                TextField("mia.beispiel.de", text: $adresstext)
-                    .textFieldStyle(.plain)
-                    #if os(iOS)
-                    .keyboardType(.URL)
-                    .textInputAutocapitalization(.never)
-                    #endif
-                    .autocorrectionDisabled()
-                    .onChange(of: adresstext) { _, _ in
-                        adresseBestaetigt = ""
-                        fehler = ""
-                    }
-
-                if pruefeAdresse {
-                    ProgressView().controlSize(.small)
-                } else if !adresseBestaetigt.isEmpty {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                } else {
-                    Button("Prüfen") {
-                        Task { await adressePruefen() }
-                    }
-                    .font(.callout)
-                    .disabled(!adresseGueltig)
-                }
-            }
-            .padding(Mass.abstand)
-            .background(
-                RoundedRectangle(cornerRadius: Mass.ecke)
-                    .fill(.quaternary.opacity(0.5))
-            )
-
-            if !adresseBestaetigt.isEmpty {
-                Text(adresseBestaetigt)
-                    .font(.caption)
-                    .foregroundStyle(.green)
-            } else {
-                Text("Name oder IP. Ohne https:// davor wird ergänzt.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
         }
     }
 
     private var codefeld: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Kopplungscode")
-                .font(.footnote.weight(.medium))
-                .foregroundStyle(.secondary)
-
-            TextField("000000", text: $code)
-                // Der Code ist das Wichtigste auf diesem Bildschirm und muss
-                // beim Abtippen gut lesbar sein: `.title` waechst mit Dynamic
-                // Type, `size: 34` nicht. Monospaced, damit die sechs Ziffern
-                // beim Tippen nicht springen.
-                .font(.system(.title, design: .monospaced).weight(.medium))
-                .multilineTextAlignment(.center)
-                .textFieldStyle(.plain)
-                .focused($imCodefeld)
-                #if os(iOS)
-                // Ziffernblock statt voller Tastatur: der Code hat keine
-                // Buchstaben, und eine Tastatur mit Buchstaben lädt dazu ein,
-                // welche zu tippen.
-                .keyboardType(.numberPad)
-                .textContentType(.oneTimeCode)
-                #endif
-                .onChange(of: code) { _, neu in
-                    // Nur Ziffern, höchstens sechs. Filtern statt meckern:
-                    // eine Fehlermeldung für ein Zeichen, das ohnehin nicht
-                    // hingehört, ist eine Meldung zu viel.
-                    let sauber = String(neu.filter(\.isNumber).prefix(6))
-                    if sauber != neu { code = sauber }
-                    fehler = ""
-                }
-                .padding(.vertical, Mass.abstand)
-                .frame(maxWidth: .infinity)
-                .background(
-                    RoundedRectangle(cornerRadius: Mass.ecke)
-                        .fill(.quaternary.opacity(0.5))
-                )
-
-            Text("Steht in Mia OS unter Einstellungen. Gilt zehn Minuten.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
+        TextField("000000", text: $code)
+            // Der Code ist das Wichtigste auf diesem Bildschirm und muss beim
+            // Abtippen gut lesbar sein: `.title` waechst mit Dynamic Type,
+            // `size: 34` nicht. Monospaced, damit die sechs Ziffern beim
+            // Tippen nicht springen.
+            .font(.system(.title, design: .monospaced).weight(.medium))
+            .multilineTextAlignment(.center)
+            .textFieldStyle(.plain)
+            .focused($imCodefeld)
+            #if os(iOS)
+            // Ziffernblock statt voller Tastatur: der Code hat keine
+            // Buchstaben, und eine Tastatur mit Buchstaben lädt dazu ein,
+            // welche zu tippen.
+            .keyboardType(.numberPad)
+            .textContentType(.oneTimeCode)
+            #endif
+            .onChange(of: code) { _, neu in
+                // Nur Ziffern, höchstens sechs. Filtern statt meckern: eine
+                // Fehlermeldung für ein Zeichen, das ohnehin nicht hingehört,
+                // ist eine Meldung zu viel.
+                let sauber = String(neu.filter(\.isNumber).prefix(6))
+                if sauber != neu { code = sauber }
+                fehler = ""
+            }
+            .padding(.vertical, Mass.abstand)
+            .frame(maxWidth: 280)
+            .background(
+                RoundedRectangle(cornerRadius: Mass.ecke)
+                    .fill(.quaternary.opacity(0.5))
+            )
     }
 
     private var verbindenKnopf: some View {
@@ -250,45 +154,242 @@ struct Kopplung: View {
                 Text("Verbinden")
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: 280)
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
-        .disabled(!codeGueltig || !adresseGueltig || laeuft)
+        .disabled(!codeGueltig || adresse == nil || laeuft)
+    }
+
+    @ViewBuilder
+    private var gefundene: some View {
+        // Nur zeigen, wenn es etwas zu zeigen gibt. Ein leerer Kasten „Nichts
+        // gefunden" wäre über den Tunnel der Normalfall und damit nur Lärm.
+        if suche.laeuft || !suche.gefunden.isEmpty {
+            VStack(alignment: .leading, spacing: Mass.abstand) {
+                HStack(spacing: 6) {
+                    Text("Im Netz gefunden")
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    if suche.laeuft {
+                        ProgressView().controlSize(.mini)
+                    }
+                }
+
+                ForEach(suche.gefunden) { server in
+                    Button {
+                        uebernehmen(server)
+                    } label: {
+                        HStack(spacing: Mass.abstand) {
+                            Image(systemName: "desktopcomputer")
+                                .foregroundStyle(.tint)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(server.name)
+                                Text(server.beschreibung)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(Mass.abstand)
+                    .background(
+                        RoundedRectangle(cornerRadius: Mass.ecke)
+                            .fill(.quaternary.opacity(0.4))
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    // MARK: Unten
+
+    private var serverleiste: some View {
+        VStack(spacing: 0) {
+            Divider()
+
+            Button {
+                withAnimation(.snappy(duration: 0.2)) { offen.toggle() }
+            } label: {
+                HStack {
+                    Text("Server")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(serverzeile)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(bestaetigt.isEmpty ? .secondary : .primary)
+                    Image(systemName: "chevron.up")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(offen ? 0 : 180))
+                }
+                .font(.footnote)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, Mass.abstandGross)
+            .padding(.vertical, Mass.abstand)
+
+            if offen {
+                ausklappung
+            }
+        }
+        .background(.bar)
+    }
+
+    private var ausklappung: some View {
+        VStack(alignment: .leading, spacing: Mass.abstand) {
+            Text("Adresse")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            TextField("mia.beispiel.de", text: $adresstext)
+                .textFieldStyle(.plain)
+                #if os(iOS)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                #endif
+                .autocorrectionDisabled()
+                .onChange(of: adresstext) { _, neu in
+                    bestaetigt = ""
+                    fehler = ""
+                    // Den Port mitziehen, solange Mia ihn nicht selbst
+                    // angefasst hat: wer von einem Namen auf eine IP wechselt,
+                    // will 8080, nicht 443. Sobald dort etwas Eigenes steht,
+                    // bleibt es stehen.
+                    let vorschlag = Einstellungen.portVorschlag(fuer: neu)
+                    if porttext.isEmpty || !portVonHand {
+                        porttext = String(vorschlag)
+                    }
+                }
+                .padding(Mass.abstand)
+                .background(
+                    RoundedRectangle(cornerRadius: Mass.ecke)
+                        .fill(.quaternary.opacity(0.5))
+                )
+
+            Text("Port")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: Mass.abstand) {
+                TextField("443", text: $porttext)
+                    .textFieldStyle(.plain)
+                    #if os(iOS)
+                    .keyboardType(.numberPad)
+                    #endif
+                    .onChange(of: porttext) { _, neu in
+                        let sauber = String(neu.filter(\.isNumber).prefix(5))
+                        if sauber != neu { porttext = sauber }
+                        portVonHand = true
+                        bestaetigt = ""
+                    }
+                    .frame(width: 90)
+                    .padding(Mass.abstand)
+                    .background(
+                        RoundedRectangle(cornerRadius: Mass.ecke)
+                            .fill(.quaternary.opacity(0.5))
+                    )
+
+                Button {
+                    Task { await adressePruefen() }
+                } label: {
+                    if pruefeAdresse {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Text("Prüfen")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(adresse == nil || pruefeAdresse)
+
+                if !bestaetigt.isEmpty {
+                    Label("erreichbar", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                        .labelStyle(.titleAndIcon)
+                }
+                Spacer()
+            }
+        }
+        .padding(.horizontal, Mass.abstandGross)
+        .padding(.bottom, Mass.abstandGross)
+        .frame(maxWidth: 420)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: Handlungen
 
+    private func starten() {
+        if Einstellungen.adresseGesetzt {
+            let vorhanden = Einstellungen.adresse
+            adresstext = (vorhanden.host() ?? "")
+            porttext = String(Einstellungen.portVon(vorhanden))
+            imCodefeld = true
+        } else {
+            // Ohne Adresse bringt das Codefeld nichts: der Code liefe gegen
+            // `localhost` und wäre verbraucht. Also gleich aufgeklappt.
+            offen = true
+            porttext = "443"
+        }
+        suche.starten()
+    }
+
+    /// Einen gefundenen Server übernehmen. **Nur auf Antippen.**
+    ///
+    /// Prüft sofort und springt ins Codefeld, damit ein Fund ein Tippen
+    /// kostet und nicht drei.
+    ///
+    /// Die Betonung liegt auf „auf Antippen": beim ersten Entwurf setzte die
+    /// Suche die Adresse selbst, sobald sie etwas fand. Im Simulator stand
+    /// dadurch prompt eine fremde Adresse aus dem Heimnetz in der Zeile,
+    /// ohne dass jemand sie gewählt hatte, und das Ausklappen schloss sich
+    /// von allein. Eine App, die sich ungefragt mit einem Server im Netz
+    /// verbindet, ist das Gegenteil von dem, was dieser Bildschirm leisten
+    /// soll.
+    private func uebernehmen(_ server: GefundenerServer) {
+        adresstext = server.adresse.host() ?? ""
+        porttext = String(Einstellungen.portVon(server.adresse))
+        portVonHand = true
+        bestaetigt = ""
+        fehler = ""
+        Task { await adressePruefen() }
+    }
+
     private func adressePruefen() async {
-        guard let url = Einstellungen.adresseAus(adresstext) else { return }
+        guard let url = adresse else { return }
         pruefeAdresse = true
         fehler = ""
         defer { pruefeAdresse = false }
 
         switch await Draht.pruefen(url) {
         case .success(let version):
-            // Gleich merken: wer die Adresse geprüft hat, will sie auch
-            // benutzen, und ein zweiter Knopf dafür wäre ein Klick zu viel.
+            // Gleich merken: wer geprüft hat, will die Adresse auch benutzen.
             Einstellungen.adresse = url
-            adresstext = url.absoluteString
             await zentrale.adresseSetzen(url)
-            adresseBestaetigt = version.isEmpty
-                ? "Mia OS erreichbar"
-                : "Mia OS \(version) erreichbar"
+            bestaetigt = version.isEmpty ? "Mia OS" : "Mia OS \(version)"
+            // Zuklappen und in den Code springen: die Adresse ist erledigt,
+            // der Bildschirm soll wieder ruhig werden.
+            withAnimation(.snappy(duration: 0.2)) { offen = false }
             imCodefeld = true
         case .failure(let grund):
-            adresseBestaetigt = ""
+            bestaetigt = ""
             fehler = grund.localizedDescription
+            offen = true
         }
     }
 
     private func koppeln() async {
-        guard let url = Einstellungen.adresseAus(adresstext) else { return }
+        guard let url = adresse else { return }
         laeuft = true
         fehler = ""
         defer { laeuft = false }
 
-        // Die Adresse in jedem Fall setzen, auch wenn nicht vorher geprüft
-        // wurde: sonst ginge der Code an die alte.
+        // Die Adresse in jedem Fall setzen, auch ohne vorheriges Prüfen:
+        // sonst ginge der Code an die alte.
         Einstellungen.adresse = url
         await zentrale.adresseSetzen(url)
 
