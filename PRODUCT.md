@@ -6,17 +6,27 @@
 
 ## Platform
 
-`web` — mobil zuerst. Kein natives App-Projekt, kein Wrapper.
+adaptive
+
+Die Weboberfläche mobil zuerst, dazu native Apps für iPhone, Mac und Uhr aus
+einer SwiftUI-Codebasis (`apple/`) und ein ESP32-Display.
+
+Bis zum 13.09.2026 stand hier `web`. Das stimmt seit den nativen Apps nicht
+mehr, und der falsche Wert hat Folgen: Impeccable prüft eine als `web`
+deklarierte SwiftUI-App mit Web-Regeln und übergeht `reference/ios.md`.
+
+Welche Bereiche auf Apple landen, steht in `docs/apple-zuschnitt.md`, wie sie
+dort aussehen in `docs/apple-bildschirme.md`.
 
 ## Stack
 
-Festgelegt und bereits umgesetzt: Python 3.11, FastAPI, Jinja2-Templates,
-handgeschriebenes CSS ohne Framework, SQLite als Zeitreihe. Kein Build-Schritt,
-kein npm im Auslieferungspfad. Läuft als Docker-Container auf einem LXC im
-eigenen Netz.
+Backend Python 3.13, FastAPI, SQLite als Zeitreihe. Frontend Svelte und
+Tailwind, gebaut mit Vite. Läuft als Docker-Container auf einem LXC im eigenen
+Netz. Apple-Apps in SwiftUI, Projekt über XcodeGen aus `apple/project.yml`.
 
-Diese Wahl ist getroffen, nicht offen: das Dashboard soll ohne Node-Toolchain
-auskommen und in einem 1-GB-Container laufen.
+Der Container bleibt schlank und ohne fremde Dienste: keine externe Datenbank,
+kein Suchindex daneben, kein Cluster für eine Anwendung, die eine Person
+bedient.
 
 ## Primärer Nutzer
 
