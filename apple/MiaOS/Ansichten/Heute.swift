@@ -11,6 +11,12 @@ import SwiftUI
 
 struct Heute: View {
     @Environment(Zentrale.self) private var zentrale
+    /// Ob die Blattkamera offen ist. Nur auf dem iPhone: der Scanner ist
+    /// `VNDocumentCameraViewController` und den gibt es auf dem Mac nicht,
+    /// und ein MacBook hält man auch nicht über ein Blatt Papier.
+    #if os(iOS)
+    @State private var kameraOffen = false
+    #endif
 
     var body: some View {
         List {
@@ -71,6 +77,22 @@ struct Heute: View {
             }
         }
         .navigationTitle("Heute")
+        // Scannen sitzt hier und ist kein Reiter. Eine Handlung gehört in die
+        // Werkzeugleiste, ein Ort in den Balken. Entschieden am 13.09.2026.
+        #if os(iOS)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    kameraOffen = true
+                } label: {
+                    Label("Beleg scannen", systemImage: "doc.viewfinder")
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $kameraOffen) {
+            Scannen()
+        }
+        #endif
         .refreshable {
             await zentrale.briefingLaden()
         }

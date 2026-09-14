@@ -177,6 +177,93 @@ struct Option: Decodable, Sendable, Equatable {
     let farbe: String
 }
 
+// MARK: - Homelab
+
+/// Der Zustand der Dienste, wie `/api/homelab` ihn liefert.
+///
+/// `lage` ist die eine Aussage oben („Alles läuft“). Der Server formuliert
+/// sie, nicht die App: er kennt die Zählweise, und ein zweiter Satzbau in
+/// Swift liefe irgendwann daneben.
+struct Homelablage: Decodable, Sendable, Equatable {
+    let lage: Lagemeldung
+    let dienste: [Dienst]
+    let stand: String
+
+    static let leer = Homelablage(
+        lage: Lagemeldung(zustand: "", satz: ""), dienste: [], stand: ""
+    )
+}
+
+struct Lagemeldung: Decodable, Sendable, Equatable {
+    /// `oben`, `unten`, `wartung` oder leer, wenn gar nichts überwacht wird.
+    let zustand: String
+    let satz: String
+}
+
+struct Dienst: Decodable, Sendable, Equatable, Identifiable {
+    let name: String
+    let zustand: String
+    let meldung: String
+    /// `nil` heißt: noch keine Messwerte. Nicht null Prozent, und die
+    /// Ansicht muss den Unterschied zeigen.
+    let uptime: Double?
+
+    var id: String { name }
+    var istUnten: Bool { zustand == "unten" }
+}
+
+// MARK: - Dokumente
+
+/// Ein Ordner mit Anzahl. Der Einstieg in die Dokumentensuche.
+///
+/// **Mehr kommt ohne Suchbegriff nicht.** Die App ruft `/api/dokumente` immer
+/// mit `nur_ordner=1` auf, und der Server schickt dann eine leere
+/// Trefferliste. Der Grund steht in `docs/apple-zuschnitt.md`: in den Ordnern
+/// liegen Ausweise und medizinische Unterlagen, auch von anderen Menschen,
+/// und ein Telefon liegt auf Tischen.
+struct Dokumentordner: Decodable, Sendable, Equatable, Identifiable {
+    let top: String
+    let n: Int
+
+    var id: String { top }
+
+    /// Der letzte Pfadteil: „/Dokumente/02 Medizinisch“ wird „02 Medizinisch“.
+    var name: String {
+        top.split(separator: "/").last.map(String.init) ?? top
+    }
+}
+
+/// Ein Treffer aus der Dokumentensuche.
+///
+/// Nur die Felder, die die App wirklich zeigt. Der Server schickt mehr
+/// (Vorschaubilder, Editor-Links, Nextcloud-Pfade), aber ein Feld, das
+/// niemand liest, verrottet, und hier wiegt jedes Feld doppelt: was nicht
+/// dekodiert wird, steht auch in keinem Speicherauszug.
+struct Dokumenttreffer: Decodable, Sendable, Equatable, Identifiable {
+    let id: Int
+    let name: String
+    let folder: String
+    let ext: String
+    let groesse: String
+    let datum: String
+    /// Die Fundstelle im gelesenen Text, mit `[` und `]` um den Treffer.
+    /// Steht nur bei selbst gescannten Belegen, der Bestand hat keinen Text.
+    let stelle: String
+
+    var ordnerkurz: String {
+        folder.split(separator: "/").last.map(String.init) ?? folder
+    }
+}
+
+/// Was `/api/dokumente` zurückgibt.
+struct Dokumentantwort: Decodable, Sendable, Equatable {
+    let treffer: [Dokumenttreffer]
+    let gesamt: Int
+    let ordner: [Dokumentordner]
+
+    static let leer = Dokumentantwort(treffer: [], gesamt: 0, ordner: [])
+}
+
 // MARK: - Schnelleingabe
 
 /// Was der Server aus einem hingeworfenen Satz gemacht hat.

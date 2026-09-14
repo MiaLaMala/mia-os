@@ -123,6 +123,46 @@ struct DrahtTests {
         _ = try await neuerDraht().briefing()
         #expect(FalscherServer.letzte?.value(forHTTPHeaderField: "Authorization") == nil)
     }
+
+    // MARK: Dokumente
+
+    // Diese beiden gehoeren inhaltlich zur Suite "Dokumente" weiter unten,
+    // stehen aber HIER, weil sie den `FalscherServer` benutzen. `.serialized`
+    // gilt nur innerhalb einer Suite: zwei Suiten laufen nebenlaeufig und
+    // ueberschreiben sich reihum die hinterlegte Antwort. Beim ersten Lauf
+    // bekam `briefing()` prompt die Dokumentenliste.
+
+    @Test("Ohne Suchbegriff geht nur_ordner mit raus")
+    func nurOrdner() async throws {
+        FalscherServer.antworte(200, #"""
+        {"treffer":[],"gesamt":187,"seite":1,"seiten":1,
+         "ordner":[{"top":"/Dokumente/02 Medizinisch","n":14}]}
+        """#)
+        let a = try await neuerDraht().dokumente()
+
+        let url = FalscherServer.letzte?.url?.absoluteString ?? ""
+        // Der Schalter ist der ganze Schutz. Ohne ihn listet der Server die
+        // zuletzt geaenderten Dateien MIT Namen auf, und dann liegen sie im
+        // URLCache des Telefons, egal was die Ansicht danach anzeigt.
+        #expect(url.contains("nur_ordner=1"))
+        #expect(a.treffer.isEmpty)
+        #expect(a.gesamt == 187)
+        #expect(a.ordner.first?.name == "02 Medizinisch")
+    }
+
+    @Test("Auch mit Ordnerfilter bleibt der Schalter gesetzt")
+    func ordnerfilter() async throws {
+        FalscherServer.antworte(200, #"""
+        {"treffer":[],"gesamt":14,"seite":1,"seiten":1,"ordner":[]}
+        """#)
+        _ = try await neuerDraht().dokumente(ordner: "/Dokumente/02 Medizinisch")
+
+        let url = FalscherServer.letzte?.url?.absoluteString ?? ""
+        // Mias Entscheidung vom 14.09.2026: ein angetippter Ordner ist der
+        // Einstieg, nicht die Freigabe. Ein Fingertipp haelt niemanden ab,
+        // der ueber die Schulter schaut.
+        #expect(url.contains("nur_ordner=1"))
+    }
 }
 
 // MARK: - Termine
@@ -250,3 +290,58 @@ struct SammlungTests {
         #expect(e.status == "")
     }
 }
+
+// MARK: - Dokumente bleiben, wo sie hingehoeren
+
+/// Die Festlegung aus `docs/apple-zuschnitt.md`, als Test statt als Kommentar.
+///
+/// Drei Saetze, die dort stehen: leeres Suchfeld zeigt keine Dateinamen,
+/// Dokumente tauchen nie im Widget auf, Dokumente tauchen nie in einer
+/// Siri-Antwort auf. Ein Kommentar haelt das nicht. Ein Test schlaegt fehl,
+/// sobald jemand in einem halben Jahr ein Dokumentenfeld einbaut, weil es
+/// gerade praktisch waere.
+///
+/// **Hier stehen nur Tests ohne Server.** Die beiden, die den `FalscherServer`
+/// brauchen, sitzen in der Suite `Draht`: `.serialized` gilt nur INNERHALB
+/// einer Suite. Zwei Suiten laufen nebenlaeufig, ueberschreiben sich reihum
+/// die hinterlegte Antwort, und dann bekommt `briefing()` die Dokumentenliste.
+/// Genau das ist beim ersten Lauf passiert.
+@Suite("Dokumente")
+struct DokumenteTests {
+
+    @Test("Das Widget kennt keine Dokumente")
+    func widgetOhneDokumente() throws {
+        // `Handgelenk` ist der EINZIGE Typ, den das Widget und die Uhr lesen
+        // (siehe `Ablage` und `MiaOSWidget`). Was hier nicht drin steht, kann
+        // dort nicht landen. Geprueft wird ueber die kodierten Schluessel und
+        // nicht ueber eine Aufzaehlung im Kopf: eine neue Eigenschaft faellt
+        // so von selbst auf.
+        //
+        // Mit gesetztem `naechster`, nicht mit `.leer`: ein `nil` laesst der
+        // Encoder weg, und der Schluessel fehlte dann aus dem falschen Grund.
+        let voll = Handgelenk(
+            naechster: Kurztermin(titel: "Zahnarzt", zeit: "09:00", ort: "Buxtehude"),
+            spaeter_heute: 2, faellig: 1, offen: 3, stand: "2026-09-14T11:00:00Z"
+        )
+        let roh = try JSONEncoder().encode(voll)
+        let felder = try JSONSerialization.jsonObject(with: roh) as? [String: Any] ?? [:]
+
+        #expect(felder["dokumente"] == nil)
+        #expect(felder["dokument"] == nil)
+        #expect(felder["dateien"] == nil)
+        #expect(
+            Set(felder.keys) == ["naechster", "spaeter_heute", "faellig", "offen", "stand"],
+            "Neues Feld in Handgelenk: gehoert es wirklich aufs Widget und auf die Uhr?"
+        )
+    }
+
+    @Test("Ein Kurztermin traegt keinen Dateibezug")
+    func kurzterminOhneDatei() throws {
+        let roh = try JSONEncoder().encode(
+            Kurztermin(titel: "Zahnarzt", zeit: "09:00", ort: "Buxtehude")
+        )
+        let felder = try JSONSerialization.jsonObject(with: roh) as? [String: Any] ?? [:]
+        #expect(Set(felder.keys) == ["titel", "zeit", "ort"])
+    }
+}
+

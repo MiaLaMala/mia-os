@@ -20,6 +20,10 @@ final class Zentrale {
     private(set) var sammlung: Sammlung = .leer
     private(set) var termine: [Termin] = []
     private(set) var seiten: [Seite] = []
+    private(set) var homelab: Homelablage = .leer
+    /// Die Dokumentensuche. Ohne Suchbegriff stehen hier nur Ordner und
+    /// Anzahl, nie Dateinamen: der Server schickt sie gar nicht erst.
+    private(set) var dokumente: Dokumentantwort = .leer
 
     // MARK: Zustand
 
@@ -39,6 +43,8 @@ final class Zentrale {
     private(set) var laedtBriefing = false
     private(set) var laedtSammlung = false
     private(set) var laedtTermine = false
+    private(set) var laedtHomelab = false
+    private(set) var laedtDokumente = false
     /// Wann die Daten zuletzt wirklich vom Server kamen.
     private(set) var stand: Date?
 
@@ -80,6 +86,8 @@ final class Zentrale {
         sammlung = .leer
         termine = []
         seiten = []
+        homelab = .leer
+        dokumente = .leer
         stand = nil
         lage = .nichtGekoppelt
     }
@@ -144,6 +152,33 @@ final class Zentrale {
         defer { laedtTermine = false }
         do {
             termine = try await draht.termine(von: von, bis: bis)
+            erfolg()
+        } catch {
+            fehler(error)
+        }
+    }
+
+    func homelabLaden() async {
+        laedtHomelab = true
+        defer { laedtHomelab = false }
+        do {
+            homelab = try await draht.homelab()
+            erfolg()
+        } catch {
+            fehler(error)
+        }
+    }
+
+    /// Dokumente suchen, oder ohne Suchbegriff die Ordner holen.
+    ///
+    /// Der leere Aufruf liefert Ordner und Anzahl. Dateinamen gibt es
+    /// ausschließlich zu einem getippten Suchbegriff, und die Entscheidung
+    /// fällt auf dem Server, nicht hier.
+    func dokumenteLaden(suche: String = "", ordner: String = "") async {
+        laedtDokumente = true
+        defer { laedtDokumente = false }
+        do {
+            dokumente = try await draht.dokumente(suche: suche, ordner: ordner)
             erfolg()
         } catch {
             fehler(error)

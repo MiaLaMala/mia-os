@@ -12,20 +12,21 @@ import SwiftUI
 ///
 /// Ohne diesen Typ stünden Titel und Symbol zweimal da, einmal je Plattform,
 /// und liefen auseinander, sobald einer davon sich ändert.
+///
+/// **Fünf, und `geraet` ist keiner davon.** Entschieden am 13.09.2026, siehe
+/// `docs/apple-zuschnitt.md`. Apple lässt im Tab-Balken zwei bis fünf zu,
+/// der sechste zwänge zu einem „Mehr“-Reiter, und das ist die Ecke, in der
+/// Dinge sterben. Scannen ist deshalb ein Knopf in „Heute“ und kein Ort:
+/// es ist eine Handlung. „Dieses Gerät“ liegt aus demselben Grund hinter
+/// dem Zahnrad und nicht im Balken.
 enum Bereich: String, Hashable, CaseIterable, Identifiable {
-    case heute, termine, sammlung, scannen, geraet
+    case heute, termine, sammlung, dokumente, homelab
 
     /// Was diese Plattform zeigt.
     ///
-    /// Scannen gibt es nur auf dem iPhone: `VNDocumentCameraViewController`
-    /// ist iOS-only, und ein MacBook hält man nicht über ein Blatt Papier.
-    static var sichtbare: [Bereich] {
-        #if os(iOS)
-        return allCases
-        #else
-        return allCases.filter { $0 != .scannen }
-        #endif
-    }
+    /// Auf beiden dieselben fünf. Der Unterschied sitzt nur in der Form der
+    /// Navigation, nicht im Inhalt.
+    static var sichtbare: [Bereich] { allCases }
 
     var id: String { rawValue }
 
@@ -34,8 +35,8 @@ enum Bereich: String, Hashable, CaseIterable, Identifiable {
         case .heute: return "Heute"
         case .termine: return "Termine"
         case .sammlung: return "Sammlung"
-        case .scannen: return "Scannen"
-        case .geraet: return "Dieses Gerät"
+        case .dokumente: return "Dokumente"
+        case .homelab: return "Homelab"
         }
     }
 
@@ -44,13 +45,11 @@ enum Bereich: String, Hashable, CaseIterable, Identifiable {
         case .heute: return "sun.max"
         case .termine: return "calendar"
         case .sammlung: return "checklist"
-        case .scannen: return "doc.viewfinder"
-        case .geraet:
-            #if os(iOS)
-            return "gearshape"
-            #else
-            return "laptopcomputer"
-            #endif
+        // Die Lupe und nicht `folder`: die Ansicht ist eine Suche und keine
+        // Dateiablage. Ein Ordnersymbol verspricht Blättern, und genau das
+        // gibt es hier bewusst nicht.
+        case .dokumente: return "magnifyingglass"
+        case .homelab: return "server.rack"
         }
     }
 
@@ -60,13 +59,8 @@ enum Bereich: String, Hashable, CaseIterable, Identifiable {
         case .heute: Heute()
         case .termine: Termine()
         case .sammlung: Sammlungsliste()
-        case .scannen:
-            #if os(iOS)
-            Scannen()
-            #else
-            EmptyView()
-            #endif
-        case .geraet: Geraet()
+        case .dokumente: Dokumentensuche()
+        case .homelab: Homelab()
         }
     }
 }
@@ -124,6 +118,9 @@ private struct Navigation: View {
     /// Was gerade offen ist. Auf dem Mac steuert das die rechte Spalte, auf
     /// dem iPhone den Tab-Balken.
     @State private var offen: Bereich? = .heute
+    /// Ob „Dieses Gerät“ als Blatt offen ist. Nur auf dem iPhone: auf dem Mac
+    /// steht es unten in der Seitenleiste.
+    @State private var geraetOffen = false
 
     var body: some View {
         #if os(iOS)
@@ -135,9 +132,33 @@ private struct Navigation: View {
             ForEach(Bereich.sichtbare) { bereich in
                 NavigationStack {
                     bereich.ansicht
+                        // Das Zahnrad hängt an jedem Reiter und nicht nur an
+                        // „Heute“: ein `NavigationStack` je Reiter heißt eine
+                        // eigene Werkzeugleiste je Reiter, und ein Knopf, der
+                        // nur auf einem Bildschirm existiert, ist einer, den
+                        // man sucht.
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button {
+                                    geraetOffen = true
+                                } label: {
+                                    Label("Dieses Gerät", systemImage: "gearshape")
+                                }
+                            }
+                        }
                 }
                 .tabItem { Label(bereich.titel, systemImage: bereich.symbol) }
                 .tag(Optional(bereich))
+            }
+        }
+        .sheet(isPresented: $geraetOffen) {
+            NavigationStack {
+                Geraet()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Fertig") { geraetOffen = false }
+                        }
+                    }
             }
         }
         #else
@@ -148,13 +169,21 @@ private struct Navigation: View {
             // das hatte ich erst falsch.
             List(selection: $offen) {
                 Section {
-                    ForEach(Bereich.sichtbare.filter { $0 != .geraet }) { b in
+                    ForEach(Bereich.sichtbare) { b in
                         Label(b.titel, systemImage: b.symbol).tag(Optional(b))
                     }
                 }
+                // „Dieses Gerät“ ist kein Bereich mehr, sondern steht unten
+                // für sich. Ein eigener Zustand statt eines `Bereich`-Falls:
+                // sonst stünde es auf dem iPhone wieder im Tab-Balken, und
+                // genau den hat Mia nicht bestellt.
                 Section {
-                    Label(Bereich.geraet.titel, systemImage: Bereich.geraet.symbol)
-                        .tag(Optional(Bereich.geraet))
+                    Button {
+                        geraetOffen = true
+                    } label: {
+                        Label("Dieses Gerät", systemImage: "laptopcomputer")
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .navigationTitle("Mia OS")
@@ -165,6 +194,15 @@ private struct Navigation: View {
             } else {
                 Leer(symbol: "sidebar.left", text: "Links auswählen")
             }
+        }
+        .sheet(isPresented: $geraetOffen) {
+            Geraet()
+                .frame(minWidth: 420, minHeight: 380)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Fertig") { geraetOffen = false }
+                    }
+                }
         }
         #endif
     }

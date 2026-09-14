@@ -279,6 +279,32 @@ actor Draht {
         return huelle.seiten
     }
 
+    /// Der Zustand der Dienste im Homelab.
+    func homelab() async throws -> Homelablage {
+        try await hole("/api/homelab")
+    }
+
+    /// Dokumente suchen.
+    ///
+    /// **`nur_ordner=1` steht hier fest und ist kein Aufrufer-Argument.** Ohne
+    /// Suchbegriff antwortet der Server damit mit Ordnern und Anzahl, aber
+    /// ohne eine einzige Datei. Die Regel steht in `docs/apple-zuschnitt.md`
+    /// und ist keine Gestaltungsfrage.
+    ///
+    /// Client-seitig zu filtern wäre zu spät: die Namen wären dann bereits
+    /// über die Leitung gegangen und lägen im `URLCache` des Geräts. Der
+    /// Server schickt sie deshalb gar nicht erst.
+    func dokumente(suche: String = "", ordner: String = "") async throws -> Dokumentantwort {
+        var teile = URLComponents(string: "/api/dokumente")
+        teile?.queryItems = [
+            URLQueryItem(name: "nur_ordner", value: "1"),
+            URLQueryItem(name: "q", value: suche),
+            URLQueryItem(name: "ordner", value: ordner),
+        ]
+        guard let pfad = teile?.string else { throw NetzFehler.unlesbar("Adresse") }
+        return try await hole(pfad)
+    }
+
     /// Einen Eintrag anlegen und die ID zurückgeben.
     func eintragAnlegen(titel: String) async throws -> Int {
         struct Huelle: Decodable { let eintrag: Kennung }

@@ -74,13 +74,45 @@ struct Blattkamera: UIViewControllerRepresentable {
 }
 
 /// Der Knopf und was danach passiert.
+///
+/// Läuft als Blatt über „Heute“ und nicht mehr als eigener Reiter: Scannen
+/// ist eine Handlung und kein Ort. Deshalb der eigene `NavigationStack` und
+/// das „Fertig“ oben: ein Blatt ohne sichtbaren Weg zurück lässt sich zwar
+/// wegwischen, aber das muss man wissen.
 struct Scannen: View {
     @Environment(Zentrale.self) private var zentrale
+    @Environment(\.dismiss) private var schliessen
     @State private var kameraOffen = false
     @State private var laeuft = false
     @State private var meldung = ""
 
     var body: some View {
+        NavigationStack {
+            inhalt
+                .navigationTitle("Scannen")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Fertig") { schliessen() }
+                    }
+                }
+        }
+        // Die Kamera direkt beim Öffnen: Mia hat auf „Beleg scannen“ getippt,
+        // ein Zwischenbildschirm mit einem zweiten Knopf wäre ein Klick, der
+        // nichts entscheidet. Der Bildschirm darunter bleibt für danach, er
+        // trägt die Meldung.
+        .task {
+            if meldung.isEmpty && !laeuft { kameraOffen = true }
+        }
+        .fullScreenCover(isPresented: $kameraOffen) {
+            Blattkamera { seiten in
+                Task { await hochladen(seiten) }
+            }
+            .ignoresSafeArea()
+        }
+    }
+
+    private var inhalt: some View {
         VStack(spacing: Mass.abstandGross) {
             Spacer()
 
@@ -123,13 +155,6 @@ struct Scannen: View {
             Spacer()
         }
         .padding(Mass.abstandGross)
-        .navigationTitle("Scannen")
-        .fullScreenCover(isPresented: $kameraOffen) {
-            Blattkamera { seiten in
-                Task { await hochladen(seiten) }
-            }
-            .ignoresSafeArea()
-        }
     }
 
     private func hochladen(_ seiten: [Data]) async {
